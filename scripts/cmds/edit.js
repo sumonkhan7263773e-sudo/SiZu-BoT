@@ -1,141 +1,98 @@
 const axios = require("axios");
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
 
-module.exports = {
-  config: {
-    name: "edit",
-    aliases: [],
-    version: "4.0.0",
-    author: "EryXenX",
-    countDown: 30,
-    role: 0,
-    shortDescription: "Edit image using AI",
-    category: "AI",
-    guide: "{pn} <text> (reply to an image) | {pn} -a <text> (reply to an image, then reply to the bot's message with a 2nd photo)"
-  },
-
-  onStart: async function ({ api, event, args }) {
-    const { threadID, messageID, messageReply } = event;
-    const addMode = args.length > 0 && (args[0] === "-a" || args[0] === "--add");
-    const promptArgs = addMode ? args.slice(1) : args;
-    const prompt = promptArgs.join(" ").trim();
-
-    if (!prompt) {
-      return api.sendMessage(
-        addMode
-          ? "⚠️ Usage: edit -a <text> (reply to an image)"
-          : "⚠️ Please provide some text for the image.",
-        threadID,
-        messageID
-      );
-    }
-
-    const imgUrl = messageReply?.attachments?.[0]?.url;
-    if (!imgUrl) {
-      return api.sendMessage("⚠️ Please reply to an image.", threadID, messageID);
-    }
-
-    if (!addMode) {
-      api.setMessageReaction("⏳", messageID, () => {}, true);
-      return runEditRequest({ api, event, prompt, imageUrls: [imgUrl], reactionMsgID: messageID });
-    }
-
-    api.setMessageReaction("🫩", messageID, () => {}, true);
-
-    api.sendMessage(
-      "📷 Send another photo\nReply to this message with your 2nd image.",
-      threadID,
-      (err, info) => {
-        if (err || !info) {
-          api.setMessageReaction("❌", messageID, () => {}, true);
-          return;
-        }
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName: module.exports.config.name,
-          messageID: info.messageID,
-          author: event.senderID,
-          prompt,
-          imageUrls: [imgUrl],
-          reactionMsgID: messageID
-        });
-      },
-      messageID
-    );
-  },
-
-  onReply: async function ({ api, event, Reply }) {
-    if (event.senderID !== Reply.author) return;
-
-    const secondUrl = event.attachments?.[0]?.url;
-    if (!secondUrl) {
-      return api.sendMessage(
-        "⚠️ Please reply to this message with a photo (image attachment).",
-        event.threadID,
-        event.messageID
-      );
-    }
-
-    api.setMessageReaction("🐣", event.messageID, () => {}, true);
-
-    await runEditRequest({
-      api,
-      event,
-      prompt: Reply.prompt,
-      imageUrls: [...Reply.imageUrls, secondUrl],
-      reactionMsgID: event.messageID
-    });
-
-    global.GoatBot.onReply.delete(Reply.messageID);
-  }
+const baseApiUrl = async () => {
+        const base = await axios.get("https://raw.githubusercontent.com/aura-mahmud/HINATA/main/baseApiUrl.json");
+        return base.data.mahmud;
 };
 
-const API_BASE = "https://eryxenx.agi.bd/api/imgedit";
+module.exports = {
+        config: {
+                name: "edit",
+                aliases: ["imgedit"],
+                version: "1.7",
+                author: "MahMUD", // credit Change dile thapramu kintu.
+                countDown: 10,
+                role: 0,
+                description: {
+                        bn: "এআই এর মাধ্যমে আপনার ছবি এডিট করুন",
+                        en: "Edit your image using AI prompt",
+                        vi: "Chỉnh sửa hình ảnh của bạn bằng lời nhắc AI"
+                },
+                category: "image",
+                guide: {
+                        bn: '   {pn} <প্রম্পট>: ছবির রিপ্লাই দিয়ে এডিট প্রম্পট লিখুন'
+                                + '\n   উদাহরণ: {pn} change hair color to red',
+                        en: '   {pn} <prompt>: Reply to an image with edit instructions'
+                                + '\n   Example: {pn} add sunglasses to face',
+                        vi: '   {pn} <lời nhắc>: Phản hồi ảnh kèm hướng dẫn chỉnh sửa'
+                                + '\n   Ví dụ: {pn} đổi màu tóc thành đỏ'
+                }
+        },
 
-async function runEditRequest({ api, event, prompt, imageUrls, reactionMsgID }) {
-  try {
-    const params = new URLSearchParams();
-    params.set("image", imageUrls[0]);
-    if (imageUrls[1]) params.set("image2", imageUrls[1]);
-    params.set("prompt", prompt);
+        langs: {
+                bn: {
+                        noInput: "× বেবি, একটি ছবিতে রিপ্লাই দিয়ে বলো কি এডিট করতে হবে! 🪄",
+                        wait: "🔄 | তোমার ছবি এডিট করা হচ্ছে, একটু অপেক্ষা করো বেবি...",
+                        success: "✅ | তোমার এডিট করা ছবি তৈরি: \"%1\"",
+                        error: "× এডিট করতে সমস্যা হয়েছে: %1। প্রয়োজনে Contact MahMUD।\n•WhatsApp: 01836298139"
+                },
+                en: {
+                        noInput: "× Baby, please reply to a photo with your prompt to edit it! 🪄",
+                        wait: "🔄 | Editing your image, please wait...",
+                        success: "✅ Here's your Edited image\nPrompt: %1",
+                        error: "× Failed to edit: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
+                },
+                vi: {
+                        noInput: "× Cưng ơi, vui lòng phản hồi ảnh kèm lời nhắc chỉnh sửa! 🪄",
+                        wait: "🔄 | Đang chỉnh sửa ảnh, vui lòng chờ chút nhé...",
+                        success: "✅ | Ảnh đã chỉnh sửa cho: \"%1\"",
+                        error: "× Lỗi chỉnh sửa: %1. Liên hệ MahMUD để hỗ trợ.\n•WhatsApp: 01836298139"
+                }
+        },
 
-    const res = await axios.get(`${API_BASE}?${params.toString()}`, { timeout: 120000 });
-    const data = res.data;
-    const finalImageURL = data && data.success ? data.imageUrl : null;
+        onStart: async function ({ api, event, args, message, getLang }) {
+                const authorName = String.fromCharCode(77, 97, 104, 77, 85, 68);
+                if (this.config.author !== authorName) {
+                        return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
+                }
 
-    if (!finalImageURL) {
-      const errMsg = (data && (data.error || data.message)) || "Unknown reason";
-      api.setMessageReaction("⚠️", reactionMsgID, () => {}, true);
-      return api.sendMessage(`❌ Failed to edit\nReason: ${errMsg}`, event.threadID, event.messageID);
-    }
+                const prompt = args.join(" ");
+                const repliedImage = event.messageReply?.attachments?.[0];
 
-    const cacheDir = path.join(__dirname, "cache");
-    fs.mkdirSync(cacheDir, { recursive: true });
+                if (!prompt || !repliedImage || repliedImage.type !== "photo") {
+                        return message.reply(getLang("noInput"));
+                }
 
-    const imageResponse = await axios.get(finalImageURL, {
-      responseType: "arraybuffer",
-      timeout: 60000
-    });
+                const cacheDir = path.join(__dirname, "cache");
+                const imgPath = path.join(cacheDir, `${Date.now()}_edit.jpg`);
+                await fs.ensureDir(cacheDir);
 
-    const contentType = data.contentType || "";
-    const extFromType = contentType.split("/").pop();
-    const ext = (extFromType || finalImageURL.split("?")[0].split(".").pop() || "png").toLowerCase();
-    const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "png";
-    const filePath = path.join(cacheDir, `${Date.now()}.${safeExt}`);
-    fs.writeFileSync(filePath, Buffer.from(imageResponse.data));
+                const waitMsg = await message.reply(getLang("wait"));
 
-    api.setMessageReaction("✅", reactionMsgID, () => {}, true);
-    api.sendMessage(
-      {
-        body: "✅ Edit complete",
-        attachment: fs.createReadStream(filePath)
-      },
-      event.threadID,
-      () => fs.unlinkSync(filePath)
-    );
-  } catch (err) {
-    console.error("EDIT Error:", err?.response?.data || err.message);
-    api.setMessageReaction("❌", reactionMsgID, () => {}, true);
-    api.sendMessage("❌ Failed to edit\nReason: unexpected error", event.threadID, event.messageID);
-  }
-}
+                try {
+                        const res = await axios.post(
+                                `${await baseApiUrl()}/api/edit`,
+                                { prompt, imageUrl: repliedImage.url },
+                                { responseType: "arraybuffer" }
+                        );
+
+                        await fs.writeFile(imgPath, Buffer.from(res.data, "binary"));
+
+                        await message.reply({
+                                body: getLang("success", prompt),
+                                attachment: fs.createReadStream(imgPath)
+                        });
+
+                } catch (err) {
+                        console.error("Edit Command Error:", err);
+                        return message.reply(getLang("error", err.message));
+                } finally {
+                        if (waitMsg?.messageID) api.unsendMessage(waitMsg.messageID);
+                        setTimeout(() => {
+                                if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+                        }, 10000);
+                }
+        }
+};
