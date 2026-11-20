@@ -1,105 +1,83 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+const { createCanvas, loadImage } = require('canvas');
+const fs = require('fs-extra');
+const path = require('path');
+const axios = require('axios');
 
-const mahmud = async () => {
-        const base = await axios.get("https://raw.githubusercontent.com/aura-mahmud/HINATA/main/baseApiUrl.json");
-        return base.data.mahmud;
-};
+const ACCESS_TOKEN = "350685531728|62f8ce9f74b12f84c123cc23437a4a32";
 
 module.exports = {
-        config: {
-                name: "slap",
-                version: "2.7",
-                author: "MahMUD",
-                countDown: 10,
-                role: 0,
-                description: {
-                        en: "Give someone a slap effect",
-                        vi: "Tạo hiệu ứng slap cho ai đó"
-                },
-                category: "fun",
-                guide: {
-                        en: '   {pn} <@tag>: Give slap effect by tagging'
-                                + '\n   {pn} <uid>: Create effect using UID'
-                                + '\n   (Or use by replying to a message)',
-                        vi: '   {pn} <@tag>: Tạo hiệu ứng slap bằng cách gắn thẻ'
-                                + '\n   {pn} <uid>: Tạo hiệu ứng bằng UID'
-                                + '\n   (Hoặc phản hồi tin nhắn)'
-                }
-        },
+  config: {
+    name: "slap",
+    version: "4.0",
+    author: "Inno Alt",
+    countDown: 5,
+    role: 0,
+    shortDescription: "Custom slap image with circular avatars",
+    longDescription: "Custom slap image with your own template and circular avatars",
+    category: "FUN & SOCIAL",
+    guide: { en: "{pn} @tag" }
+  },
 
-        langs: {
-                en: {
-                        noTarget: "× Baby, mention, reply, or provide UID of the target.",
-                        success: "Baby, it’s just for fun. Don’t take it seriously.\n• 𝐄𝐟𝐟𝐞𝐜𝐭: 𝐒𝐥𝐚𝐩\n• 𝐓𝐚𝐫𝐠𝐞𝐭: %1",
-                        error: "API error: %1. Contact SuMoN for help.\n•WhatsApp: 01615197003"
-                },
-                vi: {
-                        noTarget: "× Cưng ơi, hãy gắn thẻ, phản hồi hoặc cung cấp UID mục tiêu.",
-                        success: "Baby, it’s just for fun. Don’t take it seriously.\n• 𝐄𝐟𝐟𝐞𝐜𝐭: 𝐒𝐥𝐚𝐩\n• 𝐓𝐚𝐫𝐠𝐞𝐭: %1",
-                        error: "API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
-                }
-        },
+  langs: {
+    en: { noTag: "যারে থাপড়াবি ওরে মেনশন দে 😒" }
+  },
 
-        onStart: async function ({ api, event, args, message, getLang }) {
-                const authorName = String.fromCharCode(77, 97, 104, 77, 85, 68);
-                if (this.config.author !== authorName) {
-                        return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
-                }
+  onStart: async function({ event, message, usersData, getLang }) {
 
-                const { senderID, mentions, messageReply, messageID } = event;
-                let id2;
-                let targetName = "";
+    const uid1 = event.senderID;
+    const mentions = Object.keys(event.mentions || {});
+    const uid2 = mentions[0];
+    if (!uid2) return message.reply(getLang("noTag"));
 
-                if (messageReply) {
-                        id2 = messageReply.senderID;
-                } else if (Object.keys(mentions).length > 0) {
-                        id2 = Object.keys(mentions)[0];
-                } else if (args[0] && !isNaN(args[0])) {
-                        id2 = args[0];
-                } else {
-                        id2 = senderID;
-                }
+    async function getFbProfilePic(userId, width = 512, height = 512) {
+      const url = `https://graph.facebook.com/${userId}/picture?width=${width}&height=${height}&access_token=${ACCESS_TOKEN}&redirect=false`;
+      try {
+        const res = await axios.get(url);
+        return res.data.data.url;
+      } catch {
+        return null;
+      }
+    }
 
-                try {
-                        const userInfo = await api.getUserInfo(id2);
-                        if (userInfo && userInfo[id2]) {
-                                targetName = userInfo[id2].name || userInfo[id2].firstName || "User";
-                        } else {
-                                targetName = "User";
-                        }
-                } catch (e) {
-                        targetName = "User";
-                }
+    let avatar1 = await getFbProfilePic(uid1) || await usersData.getAvatarUrl(uid1);
+    let avatar2 = await getFbProfilePic(uid2) || await usersData.getAvatarUrl(uid2);
 
-                if (!id2) return message.reply(getLang("noTarget"));
+    const tmpDir = path.join(__dirname, 'tmp');
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
 
-                api.setMessageReaction("⏳", messageID, () => { }, true);
+    const templateUrl = "https://i.postimg.cc/pdX3tmTt/xalmanx211.png";
+    const [template, img1, img2] = await Promise.all([
+      loadImage(templateUrl),
+      loadImage(avatar1),
+      loadImage(avatar2)
+    ]);
 
-                const cacheDir = path.join(__dirname, "cache");
-                const filePath = path.join(cacheDir, `slap_${id2}.png`);
+    const canvas = createCanvas(template.width, template.height);
+    const ctx = canvas.getContext("2d");
 
-                try {
-                        if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
+    ctx.drawImage(template, 0, 0);
 
-                        const response = await axios.get(`${await mahmud()}/api/fun?type=slap&user=${id2}`, { responseType: "arraybuffer" });
-                        
-                        fs.writeFileSync(filePath, Buffer.from(response.data));
- 
-                        api.setMessageReaction("🪽", messageID, () => { }, true);
-  
-                        return message.reply({
-                                body: getLang("success", targetName),
-                                attachment: fs.createReadStream(filePath)
-                        }, () => {
-                                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                        });
+    function drawCircleAvatar(ctx, img, x, y, size) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(img, x, y, size, size);
+      ctx.restore();
+    }
+    
+    drawCircleAvatar(ctx, img1, 165, 230, 90);
+    drawCircleAvatar(ctx, img2, 235, 500, 110);
 
-                } catch (err) {
-                        console.error("error:", err);
-                        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                        return message.reply(getLang("error", err.message));
-                }
-        }
+    const filePath = path.join(tmpDir, `slap_${uid1}_${uid2}.png`);
+    fs.writeFileSync(filePath, canvas.toBuffer("image/png"));
+
+    message.reply({
+      body: "👋 thassssshshhhhh!",
+      attachment: fs.createReadStream(filePath)
+    }, () => {
+      try { fs.unlinkSync(filePath); } catch {}
+    });
+  }
 };
