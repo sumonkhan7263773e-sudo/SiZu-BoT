@@ -1,46 +1,92 @@
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+
+const baseApiUrl = async () => {
+        const base = await axios.get("https://raw.githubusercontent.com/aura-mahmud/HINATA/main/baseApiUrl.json");
+        return base.data.mahmud;
+};
 
 module.exports = {
-  config: {
-    name: "pet",
-    version: "1.0",
-    author: "nexo",
-    countDown: 5,
-    role: 0,
-    shortDescription: "Pet a user",
-    longDescription: "Generates a pet image/video for a tagged user",
-    category: "fun",
-    guide: "{p}pet @user"
-  },
+        config: {
+                name: "pet",
+                version: "1.7",
+                author: "MahMUD",
+                countDown: 5,
+                role: 0,
+                description: {
+                        bn: "পেট ইফেক্ট জেনারেট করুন",
+                        en: "Generate pet GIF effect image",
+                        vi: "Tạo hiệu ứng pet"
+                },
+                category: "fun",
+                guide: {
+                        bn: '   {pn} @mention: নির্দিষ্ট কাউকে মেনশন করুন' +
+                                '\n   {pn} [reply]: রিপ্লাই দিয়ে ইফেক্ট তৈরি করুন' +
+                                '\n   {pn} [UID]: ইউজার আইডি দিন',
+                        en: '   {pn} @mention: Generate with mentioned user' +
+                                '\n   {pn} [reply]: Generate with replied user' +
+                                '\n   {pn} [UID]: Provide a user ID',
+                        vi: '   {pn} @mention: Tạo với người được nhắc' +
+                                '\n   {pn} [reply]: Tạo với người đã trả lời' +
+                                '\n   {pn} [UID]: Cung cấp UID'
+                }
+        },
 
-  onStart: async function ({ message, event, usersData }) {
-    const mentions = Object.keys(event.mentions);
-    if (mentions.length === 0) return message.reply("❌ Please tag a user.");
+        langs: {
+                bn: {
+                        provide: "• দয়া করে কাউকে মেনশন, মেসেজ রিপ্লাই অথবা UID দিন।",
+                        success: "🐾 | এই নাও তোমার পেট ইফেক্ট!",
+                        error: "× API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
+                },
+                en: {
+                        provide: "• Please mention, message reply or provide a UID.",
+                        success: "🐾 | Here's your pet effect!",
+                        error: "× API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
+                },
+                vi: {
+                        provide: "• Vui lòng gắn thẻ, trả lời tin nhắn hoặc cung cấp UID.",
+                        success: "🐾 | Hiệu ứng pet của bạn đây!",
+                        error: "× API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
+                }
+        },
 
-    const userid = mentions[0];
-    const apiUrl = `https://betadash-api-swordslush-production.up.railway.app/pet?userid=${userid}`;
+        onStart: async function ({ api, event, args, message, getLang }) {
+                const authorName = String.fromCharCode(77, 97, 104, 77, 85, 68);
+                if (this.config.author !== authorName) {
+                        return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
+                }
 
-    try {
-      const res = await axios.get(apiUrl, { responseType: "arraybuffer" });
-      const contentType = res.headers["content-type"];
-      const ext = contentType.includes("gif") ? "gif" : contentType.includes("mp4") ? "mp4" : "jpg";
-      const filePath = path.join(__dirname, "cache", `pet_${userid}.${ext}`);
+                try {
+                        const { mentions, type, messageReply } = event;
+                        let uid;
 
-      fs.writeFileSync(filePath, res.data);
+                        if (Object.keys(mentions).length > 0) {
+                                uid = Object.keys(mentions)[0];
+                        } else if (type === "message_reply") {
+                                uid = messageReply.senderID;
+                        } else if (args[0]) {
+                                uid = args[0];
+                        } else {
+                                return message.reply(getLang("provide"));
+                        }
 
-      const name = await usersData.getName(userid);
+                        api.setMessageReaction("⏳", event.messageID, () => {}, true);
 
-      await message.reply({
-        body: `🐾 You petted ${name}!`,
-        attachment: fs.createReadStream(filePath)
-      });
+                        const response = await axios.get(`${await baseApiUrl()}/api/pet?uid=${uid}`, {
+                                responseType: "stream"
+                        });
+                        const stream = response.data;
 
-      fs.unlinkSync(filePath);
-    } catch (err) {
-      console.error("❌ Pet command error:", err);
-      message.reply("⚠️ Failed to generate pet image/video.");
-    }
-  }
+                        api.setMessageReaction("✅", event.messageID, () => {}, true);
+
+                        return message.reply({
+                                body: getLang("success"),
+                                attachment: stream
+                        });
+
+                } catch (err) {
+                        console.error("Pet Error:", err);
+                        api.setMessageReaction("❌", event.messageID, () => {}, true);
+                        return message.reply(getLang("error", err.message));
+                }
+        }
 };
