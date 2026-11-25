@@ -33,7 +33,7 @@ module.exports = {
                 en: {
                         noTarget: "× Baby, mention, reply, or provide UID of the target.",
                         success: "Baby, it’s just for fun. Don’t take it seriously.\n• 𝐄𝐟𝐟𝐞𝐜𝐭: 𝐇𝐢𝐭𝐥𝐞𝐫\n• 𝐓𝐚𝐫𝐠𝐞𝐭: %1",
-                        error: "API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
+                        error: "API error: %1. Contact Sumon for help.\n•WhatsApp: 01615197003"
                 },
                 vi: {
                         noTarget: "× Cưng ơi, hãy gắn thẻ, phản hồi hoặc cung cấp UID mục tiêu.",
