@@ -1,118 +1,112 @@
+
 const axios = require("axios");
-const { Jimp } = require("jimp");
-const { Readable } = require("stream");
+const fs = require("fs-extra");
+const path = require("path");
+const { createCanvas, loadImage } = require("canvas");
 
 module.exports = {
   config: {
     name: "gcimg",
-    aliases: ["groupimg", "gcpp"],
-    version: "1.1",
+    version: "1.0",
     author: "Sumon",
-    shortDescription: "Group members profile collage",
-    longDescription: "Creates a collage of group members profile pictures",
-    category: "group",
-    guide: "{pn}gcimg"
+    role: 0,
+    countDown: 15,
+    category: "fun",
+    shortDescription: "All group members PP in one photo",
+    guide: "{pn}"
   },
 
   onStart: async function ({ api, event }) {
+    const file = path.join(__dirname, "cache", `gcimg_${event.threadID}.png`);
+
     try {
-      const threadID = event.threadID;
+      await fs.ensureDir(path.dirname(file));
 
-      api.sendMessage(
-        "🌸 𝗚𝗥𝗢𝗨𝗣 𝗣𝗛𝗢𝗧𝗢 𝗖𝗥𝗘𝗔𝗧𝗜𝗡𝗚...\n⏳ Please wait!",
-        threadID
-      );
-
-      const threadInfo = await api.getThreadInfo(threadID);
-      const members = threadInfo.participantIDs || [];
-
-      if (!members.length) {
-        throw new Error("No group members found");
-      }
-
-      const userInfo = await new Promise((resolve, reject) => {
-        api.getUserInfo(members, (err, info) => {
-          if (err) reject(err);
-          else resolve(info);
-        });
-      });
+      const info = await api.getThreadInfo(event.threadID);
+      const members = info.userInfo || [];
+      const ids = info.participantIDs || members.map(m => m.id);
 
       const profiles = [];
 
-      for (const id of members.slice(0, 40)) {
+      for (const id of ids) {
         try {
-          const user = userInfo[id];
-          const url = user && (user.profileUrl || user.thumbSrc);
+          const data = await api.getUserInfo(id);
+          const url = data[id]?.thumbSrc || data[id]?.profileUrl;
 
-          if (!url) continue;
-
-          const response = await axios.get(url, {
-            responseType: "arraybuffer",
-            timeout: 15000
-          });
-
-          const image = await Jimp.read(
-            Buffer.from(response.data)
-          );
-
-          image.cover({ w: 180, h: 180 });
-          profiles.push(image);
-
-        } catch (err) {
-          console.log("Profile download failed:", id, err.message);
-        }
+          if (url) {
+            const response = await axios.get(url, {
+              responseType: "arraybuffer",
+              timeout: 10000
+            });
+            profiles.push(await loadImage(response.data));
+          }
+        } catch (e) {}
       }
 
       if (!profiles.length) {
-        throw new Error("No profile pictures available");
+        throw new Error("No profile pictures found");
       }
 
-      const columns = 5;
-      const cellSize = 180;
+      const size = 120;
+      const gap = 8;
+      const padding = 25;
+      const columns = 7;
       const rows = Math.ceil(profiles.length / columns);
 
-      const collage = new Jimp({
-        width: columns * cellSize,
-        height: rows * cellSize,
-        color: 0x202020ff
+      const width = padding * 2 + columns * (size + gap) - gap;
+      const height = padding * 2 + rows * (size + gap) - gap + 70;
+
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+
+      const bg = ctx.createLinearGradient(0, 0, width, height);
+      bg.addColorStop(0, "#080d25");
+      bg.addColorStop(1, "#25104a");
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+
+      profiles.forEach((img, i) => {
+        const x = padding + (i % columns) * (size + gap);
+        const y = padding + Math.floor(i / columns) * (size + gap);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, x, y, size, size);
+        ctx.restore();
+
+        ctx.strokeStyle = "#00d9ff";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+        ctx.stroke();
       });
 
-      profiles.forEach((img, index) => {
-        const x = (index % columns) * cellSize;
-        const y = Math.floor(index / columns) * cellSize;
-        collage.composite(img, x, y);
-      });
+      ctx.fillStyle = "#00d9ff";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("GROUP PHOTO", width / 2, height - 18);
 
-      const buffer = await collage.getBuffer("image/jpeg");
+      await fs.writeFile(file, canvas.toBuffer("image/png"));
 
       return api.sendMessage(
         {
-          body:
-            "╭━━━━━━━━━━━━━━━━━━╮\n" +
-            "  🌸 𝗚𝗥𝗢𝗨𝗣 𝗣𝗥𝗢𝗙𝗜𝗟𝗘 𝗖𝗢𝗟𝗟𝗔𝗚𝗘\n" +
-            "╰━━━━━━━━━━━━━━━━━━╯\n\n" +
-            `👥 𝗧𝗢𝗧𝗔𝗟 𝗣𝗜𝗖𝗧𝗨𝗥𝗘𝗦 : ${profiles.length}\n\n` +
-            "👑 𝗠𝗔𝗗𝗘 𝗕𝗬 : 𝗔𝗛𝗠𝗘𝗗 𝗦𝗨𝗠𝗢𝗡\n" +
-            "💕 𝗦𝗜𝗭𝗨𝗞𝗔 𝗕𝗢𝗧",
-          attachment: Readable.from(buffer)
+          body: `💙 GROUP PP COLLECTION\n👥 ${profiles.length} Profile Pictures`,
+          attachment: fs.createReadStream(file)
         },
-        threadID,
+        event.threadID,
+        () => fs.unlink(file).catch(() => {}),
         event.messageID
       );
 
     } catch (error) {
-      console.error("GCIMG ERROR:", error);
+      console.error(error);
 
       return api.sendMessage(
-        "╭━━━━━━━━━━━━━━━━━━╮\n" +
-        "       ❌ 𝗖𝗥𝗘𝗔𝗧𝗜𝗢𝗡 𝗙𝗔𝗜𝗟𝗘𝗗\n" +
-        "╰━━━━━━━━━━━━━━━━━━╯\n\n" +
-        "😔 দুঃখিত! 𝗚𝗥𝗢𝗨𝗣 𝗜𝗠𝗔𝗚𝗘 তৈরি করা যায়নি।\n\n" +
-        "📩 সমস্যার সমাধানের জন্য আমার বসের সাথে যোগাযোগ করুন।\n\n" +
-        "👑 𝗕𝗢𝗦𝗦 : 𝗔𝗛𝗠𝗘𝗗 𝗦𝗨𝗠𝗢𝗡\n" +
-        "📱 𝗪𝗛𝗔𝗧𝗦𝗔𝗣𝗣 : 01615197003\n\n" +
-        "╰━━ 💗 𝗦𝗜𝗭𝗨𝗞𝗔 𝗕𝗢𝗧 ━━╯",
-        threadID,
+        "❌ Group photo তৈরি করা যায়নি!\nআমার বসের সাথে যোগাযোগ করো: 01615197003",
+        event.threadID,
         event.messageID
       );
     }
