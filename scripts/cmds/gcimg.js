@@ -1,113 +1,120 @@
 const axios = require("axios");
-const path = require("path");
-
-const baseApiUrl = async () => {
-  const base = await axios.get("https://raw.githubusercontent.com/Mostakim0978/D1PT0/refs/heads/main/baseApiUrl.json");
-  return base.data.api;
-};
-
-async function getAvatarUrls(userIDs) {
-  const avatarURLs = [];
-  for (let userID of userIDs) {
-    try {
-      const avatar = await axios.get(
-        `https://graph.facebook.com/${userID}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`
-      );
-      avatarURLs.push(avatar.request.res.responseUrl);
-    } catch (err) {
-      avatarURLs.push("https://i.ibb.co/qk0bnY8/363492156-824459359287620-3125820102191295474-n-png-nc-cat-1-ccb-1-7-nc-sid-5f2048-nc-eui2-Ae-HIhi-I.png");
-    }
-  }
-  return avatarURLs;
-}
+const { Jimp } = require("jimp");
+const { Readable } = require("stream");
 
 module.exports = {
   config: {
     name: "gcimg",
-    aliases: ["gcimage", "grpimage"],
+    aliases: ["groupimg", "gcpp"],
     version: "1.1",
-    author: "nexo_here",
-    countDown: 5,
-    role: 0,
-    description: "Generate a styled group image with profile pictures",
-    category: "Ai-Image",
-    guide: "{pn} [--color white] [--bgcolor black] [--admincolor red] [--membercolor cyan] [--groupBorder lime] [--glow true]"
+    author: "Sumon",
+    shortDescription: "Group members profile collage",
+    longDescription: "Creates a collage of group members profile pictures",
+    category: "group",
+    guide: "{pn}gcimg"
   },
 
-  onStart: async function ({ api, args, event, message }) {
+  onStart: async function ({ api, event }) {
     try {
-      let textColor = "white";
-      let bgColor = null;
-      let adminColor = "yellow";
-      let memberColor = "cyan";
-      let borderColor = "lime";
-      let glow = false;
+      const threadID = event.threadID;
 
-      for (let i = 0; i < args.length; i++) {
-        switch (args[i]) {
-          case "--color":
-            textColor = args[i + 1];
-            i++;
-            break;
-          case "--bgcolor":
-            bgColor = args[i + 1];
-            i++;
-            break;
-          case "--admincolor":
-            adminColor = args[i + 1];
-            i++;
-            break;
-          case "--membercolor":
-            memberColor = args[i + 1];
-            i++;
-            break;
-          case "--groupBorder":
-            borderColor = args[i + 1];
-            i++;
-            break;
-          case "--glow":
-            glow = args[i + 1]?.toLowerCase() === "true";
-            i++;
-            break;
+      api.sendMessage(
+        "🌸 𝗚𝗥𝗢𝗨𝗣 𝗣𝗛𝗢𝗧𝗢 𝗖𝗥𝗘𝗔𝗧𝗜𝗡𝗚...\n⏳ Please wait!",
+        threadID
+      );
+
+      const threadInfo = await api.getThreadInfo(threadID);
+      const members = threadInfo.participantIDs || [];
+
+      if (!members.length) {
+        throw new Error("No group members found");
+      }
+
+      const userInfo = await new Promise((resolve, reject) => {
+        api.getUserInfo(members, (err, info) => {
+          if (err) reject(err);
+          else resolve(info);
+        });
+      });
+
+      const profiles = [];
+
+      for (const id of members.slice(0, 40)) {
+        try {
+          const user = userInfo[id];
+          const url = user && (user.profileUrl || user.thumbSrc);
+
+          if (!url) continue;
+
+          const response = await axios.get(url, {
+            responseType: "arraybuffer",
+            timeout: 15000
+          });
+
+          const image = await Jimp.read(
+            Buffer.from(response.data)
+          );
+
+          image.cover({ w: 180, h: 180 });
+          profiles.push(image);
+
+        } catch (err) {
+          console.log("Profile download failed:", id, err.message);
         }
       }
 
-      const threadInfo = await api.getThreadInfo(event.threadID);
-      const participantIDs = threadInfo.participantIDs;
-      const adminIDs = threadInfo.adminIDs.map(admin => admin.id);
+      if (!profiles.length) {
+        throw new Error("No profile pictures available");
+      }
 
-      const memberAvatars = await getAvatarUrls(participantIDs);
-      const adminAvatars = await getAvatarUrls(adminIDs);
+      const columns = 5;
+      const cellSize = 180;
+      const rows = Math.ceil(profiles.length / columns);
 
-      const payload = {
-        groupName: threadInfo.threadName,
-        groupPhotoURL: threadInfo.imageSrc,
-        memberURLs: memberAvatars,
-        adminURLs: adminAvatars,
-        color: textColor,
-        bgcolor: bgColor,
-        admincolor: adminColor,
-        membercolor: memberColor,
-        groupborderColor: borderColor,
-        glow
-      };
-
-      const waitMsg = await message.reply("🛠️ | Generating group image, please wait...");
-      api.setMessageReaction("⏳", event.messageID, () => {}, true);
-
-      const response = await axios.post(`${await baseApiUrl()}/gcimg`, payload, { responseType: "stream" });
-
-      message.unsend(waitMsg.messageID);
-      api.setMessageReaction("✅", event.messageID, () => {}, true);
-
-      return message.reply({
-        body: "✨ | Here's your group image:",
-        attachment: response.data
+      const collage = new Jimp({
+        width: columns * cellSize,
+        height: rows * cellSize,
+        color: 0x202020ff
       });
 
-    } catch (err) {
-      console.error("[gcimg] Error:", err);
-      return message.reply(`❌ | An error occurred: ${err.message}`);
+      profiles.forEach((img, index) => {
+        const x = (index % columns) * cellSize;
+        const y = Math.floor(index / columns) * cellSize;
+        collage.composite(img, x, y);
+      });
+
+      const buffer = await collage.getBuffer("image/jpeg");
+
+      return api.sendMessage(
+        {
+          body:
+            "╭━━━━━━━━━━━━━━━━━━╮\n" +
+            "  🌸 𝗚𝗥𝗢𝗨𝗣 𝗣𝗥𝗢𝗙𝗜𝗟𝗘 𝗖𝗢𝗟𝗟𝗔𝗚𝗘\n" +
+            "╰━━━━━━━━━━━━━━━━━━╯\n\n" +
+            `👥 𝗧𝗢𝗧𝗔𝗟 𝗣𝗜𝗖𝗧𝗨𝗥𝗘𝗦 : ${profiles.length}\n\n` +
+            "👑 𝗠𝗔𝗗𝗘 𝗕𝗬 : 𝗔𝗛𝗠𝗘𝗗 𝗦𝗨𝗠𝗢𝗡\n" +
+            "💕 𝗦𝗜𝗭𝗨𝗞𝗔 𝗕𝗢𝗧",
+          attachment: Readable.from(buffer)
+        },
+        threadID,
+        event.messageID
+      );
+
+    } catch (error) {
+      console.error("GCIMG ERROR:", error);
+
+      return api.sendMessage(
+        "╭━━━━━━━━━━━━━━━━━━╮\n" +
+        "       ❌ 𝗖𝗥𝗘𝗔𝗧𝗜𝗢𝗡 𝗙𝗔𝗜𝗟𝗘𝗗\n" +
+        "╰━━━━━━━━━━━━━━━━━━╯\n\n" +
+        "😔 দুঃখিত! 𝗚𝗥𝗢𝗨𝗣 𝗜𝗠𝗔𝗚𝗘 তৈরি করা যায়নি।\n\n" +
+        "📩 সমস্যার সমাধানের জন্য আমার বসের সাথে যোগাযোগ করুন।\n\n" +
+        "👑 𝗕𝗢𝗦𝗦 : 𝗔𝗛𝗠𝗘𝗗 𝗦𝗨𝗠𝗢𝗡\n" +
+        "📱 𝗪𝗛𝗔𝗧𝗦𝗔𝗣𝗣 : 01615197003\n\n" +
+        "╰━━ 💗 𝗦𝗜𝗭𝗨𝗞𝗔 𝗕𝗢𝗧 ━━╯",
+        threadID,
+        event.messageID
+      );
     }
   }
 };
