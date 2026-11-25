@@ -1,140 +1,123 @@
 const fs = require("fs-extra");
 const path = require("path");
-const axios = require("axios");
-const { createCanvas, loadImage } = require("canvas");
+const https = require("https");
 
 module.exports = {
   config: {
     name: "needgf",
-    version: "1.0.0",
+    aliases: ["gf", "girlfriend"],
+    version: "1.0",
     author: "Sumon",
-    countDown: 5,
-    role: 0,
-    shortDescription: "Random GF card",
-    longDescription: "Random group member দিয়ে GF card তৈরি করে।",
+    shortDescription: "Get a random GF",
+    longDescription: "Create a random girlfriend image with a fun message",
     category: "fun",
-    guide: {
-      en: "{pn}"
-    }
+    guide: "{pn}"
   },
 
-  onStart: async function ({ api, event }) {
+  onStart: async function ({ message }) {
+
+    const gifURLs = [
+      "https://i.imgur.com/Xw6JTfn.gif",
+      "https://i.imgur.com/mW0yjZb.gif",
+      "https://i.imgur.com/KQBcxOV.gif"
+    ];
+
+    const randomURL =
+      gifURLs[Math.floor(Math.random() * gifURLs.length)];
+
+    const cacheFolder = path.join(__dirname, "cache");
+
+    if (!fs.existsSync(cacheFolder)) {
+      fs.mkdirSync(cacheFolder, { recursive: true });
+    }
+
+    const fileName = path.basename(randomURL);
+    const filePath = path.join(cacheFolder, fileName);
+
     try {
-      const threadInfo = await api.getThreadInfo(event.threadID);
-
-      let members = threadInfo.participantIDs.filter(
-        id => String(id) !== String(api.getCurrentUserID())
-      );
-
-      if (!members.length) {
-        return api.sendMessage(
-          "কোনো group member পাওয়া যায়নি 😅",
-          event.threadID
-        );
+      if (!fs.existsSync(filePath)) {
+        await downloadFile(randomURL, filePath);
       }
 
-      // Random member
-      const targetID =
-        members[Math.floor(Math.random() * members.length)];
-
-      let userInfo = {};
-
-      try {
-        userInfo = await api.getUserInfo(targetID);
-      } catch (e) {}
-
       const name =
-        userInfo[targetID]?.name || "Unknown Member";
+        message?.senderID
+          ? "তোর"
+          : "তোমার";
 
-      const avatar =
-        `https://graph.facebook.com/${targetID}/picture?width=720&height=720`;
+      const msg =
+`╭━━━━━━━━━━━━━━━━━━╮
+   💕 𝐆𝐈𝐑𝐋𝐅𝐑𝐈𝐄𝐍𝐃 𝐑𝐄𝐒𝐔𝐋𝐓 💕
+╰━━━━━━━━━━━━━━━━━━╯
 
-      const image = await makeGFCard(avatar, name);
+💌 ${name} 𝐆𝐅 𝐍𝐢𝐬𝐞 𝐆𝐞𝐥𝐨 😎
 
-      const cacheDir = path.join(__dirname, "cache");
-      await fs.ensureDir(cacheDir);
+👩🏻 𝐒𝐭𝐚𝐭𝐮𝐬 : 𝐑𝐚𝐧𝐝𝐨𝐦 𝐆𝐅
+💝 𝐌𝐨𝐨𝐝 : 𝐂𝐮𝐭𝐞
+✨ 𝐕𝐢𝐛𝐞 : 𝐏𝐫𝐞𝐦𝐢𝐮𝐦
 
-      const filePath = path.join(
-        cacheDir,
-        `needgf_${Date.now()}.png`
-      );
+💬 𝐄𝐲 𝐧𝐞 𝐭𝐨𝐫 𝐆𝐅 😌❤️
 
-      await fs.writeFile(filePath, image);
+━━━━━━━━━━━━━━━━━━
+🤖 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐒𝐮𝐦𝐨𝐧`;
 
-      api.sendMessage(
-        {
-          body: `💘 এই নে tor GF ❤️\n👑 GF: ${name}`,
-          attachment: fs.createReadStream(filePath)
-        },
-        event.threadID,
-        () => {
-          setTimeout(() => {
-            try {
-              fs.unlinkSync(filePath);
-            } catch (e) {}
-          }, 15000);
-        }
-      );
+      return message.reply({
+        body: msg,
+        attachment: fs.createReadStream(filePath)
+      });
 
     } catch (error) {
-      console.error("needgf error:", error);
+      console.error("NeedGF Error:", error);
 
-      return api.sendMessage(
-        "❌ GF card বানাতে সমস্যা হয়েছে।",
-        event.threadID
+      return message.reply(
+`❌ 𝐆𝐅 𝐈𝐦𝐚𝐠𝐞 𝐋𝐨𝐚𝐝 𝐇𝐨𝐲𝐧𝐢!
+
+🔄 আবার ${global.GoatBot?.config?.prefix || "-"}needgf ট্রাই করো।`
       );
     }
   }
 };
 
+function downloadFile(url, destination) {
+  return new Promise((resolve, reject) => {
 
-async function makeGFCard(avatarURL, name) {
+    const file = fs.createWriteStream(destination);
 
-  const W = 1080;
-  const H = 1350;
+    https.get(url, (response) => {
 
-  const canvas = createCanvas(W, H);
-  const ctx = canvas.getContext("2d");
+      if (
+        response.statusCode >= 300 &&
+        response.statusCode < 400 &&
+        response.headers.location
+      ) {
+        file.close();
+        fs.unlink(destination, () => {});
 
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, W, H);
+        return downloadFile(
+          response.headers.location,
+          destination
+        ).then(resolve).catch(reject);
+      }
 
-  bg.addColorStop(0, "#08000d");
-  bg.addColorStop(0.5, "#25002f");
-  bg.addColorStop(1, "#050008");
+      if (response.statusCode !== 200) {
+        file.close();
+        fs.unlink(destination, () => {});
+        return reject(
+          new Error(`HTTP ${response.statusCode}`)
+        );
+      }
 
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
+      response.pipe(file);
 
+      file.on("finish", () => {
+        file.close(resolve);
+      });
 
-  // Glow
-  const glow = ctx.createRadialGradient(
-    250,
-    300,
-    20,
-    250,
-    300,
-    500
-  );
+    }).on("error", (error) => {
 
-  glow.addColorStop(
-    0,
-    "rgba(255,0,180,.35)"
-  );
+      file.close();
+      fs.unlink(destination, () => {});
+      reject(error);
 
-  glow.addColorStop(
-    1,
-    "rgba(255,0,180,0)"
-  );
-
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-
-
-  // Hearts
-  ctx.font = "80px Arial";
-
-  ctx.fillStyle = "#ff38cf";
-
-  ctx.fillText("♥", 80, 120);
-  ctx
+    });
+  });
+               }
