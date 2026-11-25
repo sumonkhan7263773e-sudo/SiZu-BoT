@@ -1,86 +1,195 @@
-const fs = require("fs");
+const axios = require("axios");
+const fs = require("fs-extra");
 const path = require("path");
-const https = require("https");
+const cheerio = require("cheerio");
 
-function downloadFile(url, filePath) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      if (
-        res.statusCode >= 300 &&
-        res.statusCode < 400 &&
-        res.headers.location
-      ) {
-        return resolve(downloadFile(res.headers.location, filePath));
-      }
+const { configCommands } = global.GoatBot;
+const { log } = global.utils;
 
-      if (res.statusCode !== 200) {
-        return reject(
-          new Error(`Download failed: HTTP ${res.statusCode}`)
-        );
-      }
+function getDomain(url) {
+  const regex = /^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:/\n]+)/im;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+}
 
-      const file = fs.createWriteStream(filePath);
+function isURL(str) {
+  try {
+    new URL(str);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-      res.pipe(file);
+function extractUrlFromText(text) {
+  const match = text.match(/https?:\/\/[^\s]+/i);
+  return match ? match[0] : null;
+}
 
-      file.on("finish", () => {
-        file.close();
-        resolve();
-      });
+async function fetchCodeFromUrl(url) {
+  const domain = getDomain(url);
+  let fixedUrl = url;
 
-      file.on("error", reject);
-    }).on("error", reject);
-  });
+  if (domain === "pastebin.com" && !url.includes("/raw/")) {
+    fixedUrl = url.replace("pastebin.com/", "pastebin.com/raw/");
+  }
+
+  if (domain === "github.com" && url.includes("/blob/")) {
+    fixedUrl = url
+      .replace("github.com", "raw.githubusercontent.com")
+      .replace("/blob/", "/");
+  }
+
+  try {
+    const res = await axios.get(fixedUrl);
+    let code = res.data;
+
+    if (domain === "savetext.net") {
+      const $ = cheerio.load(code);
+      code = $("#content").text().trim();
+    }
+
+    return code;
+  } catch {
+    return null;
+  }
+}
+
+function extractCommandName(code) {
+  const nameMatch = code.match(/name\s*:\s*["']([^"']+)["']/);
+  return nameMatch ? nameMatch[1].trim() + ".js" : null;
 }
 
 module.exports = {
   config: {
     name: "install",
-    version: "1.0.0",
-    author: "Ahmed Sumon",
-    countDown: 5,
+    version: "3.0",
+    author: "Rx Abdullah",
+    countDown: 3,
     role: 2,
-    shortDescription: "Install JS file",
-    longDescription: "Download and install a JavaScript command file",
-    category: "admin",
-    guide: "{prefix}install <url> <filename>"
+    hasPrefix: false,
+    description: "Install command via reply / code / url",
+    category: "owner"
   },
 
-  onStart: async function ({ message, args }) {
-    const url = args[0];
-    let fileName = args[1];
+  onStart: async function ({ args, message, event, api }) {
 
-    if (!url || !fileName) {
+    let rawCode = "";
+    let fileName = "";
+
+    if (event.messageReply?.body) {
+      const replyText = event.messageReply.body.trim();
+      const url = extractUrlFromText(replyText);
+
+      if (url) {
+        rawCode = await fetchCodeFromUrl(url);
+        if (!rawCode) return message.reply(
+          "✖ Failed to fetch code from URL.\n" +
+          "Please check the link and try again."
+        );
+      } else {
+        rawCode = replyText;
+      }
+
+      fileName = extractCommandName(rawCode);
+    }
+
+    else if (args[0] && isURL(args[0])) {
+      rawCode = await fetchCodeFromUrl(args[0]);
+      if (!rawCode) return message.reply(
+        "✖ Invalid or unreachable URL.\n" +
+        "Make sure the link is accessible and try again."
+      );
+
+      fileName = extractCommandName(rawCode);
+    }
+
+    else if (args.length >= 2 && args[0].endsWith(".js")) {
+      fileName = args[0];
+      rawCode = args.slice(1).join(" ");
+    }
+
+    if (!rawCode)
       return message.reply(
-        "❌ ব্যবহার:\n-install <raw-js-url> <filename>"
+        "⚠ No code provided.\n\n" +
+        "Usage:\n" +
+        "• Reply to a message containing code or URL\n" +
+        "• Provide a raw URL directly\n" +
+        "• install <name.js> <code>"
+      );
+
+    if (!fileName)
+      return message.reply(
+        "✖ Could not detect command name.\n" +
+        "Make sure the code has a valid name field."
+      );
+
+    const filePath = path.join(process.cwd(), "scripts", "cmds", fileName);
+
+    if (fs.existsSync(filePath)) {
+      return message.reply(
+        `⚠ ${fileName} already exists.\n\n` +
+        "React to this message to overwrite and reinstall.",
+        (err, info) => {
+          global.GoatBot.onReaction.set(info.messageID, {
+            commandName: "install",
+            author: event.senderID,
+            data: { rawCode, fileName }
+          });
+        }
       );
     }
 
-    if (!fileName.endsWith(".js")) {
-      fileName += ".js";
-    }
+    fs.writeFileSync(filePath, rawCode);
 
-    const folder = path.join(
-      process.cwd(),
-      "scripts",
-      "cmds"
+    const load = global.utils.loadScripts(
+      "cmds",
+      fileName.replace(".js", ""),
+      log,
+      configCommands,
+      api
     );
 
-    if (!fs.existsSync(folder)) {
-      fs.mkdirSync(folder, { recursive: true });
-    }
-
-    const filePath = path.join(folder, fileName);
-
-    try {
-      await downloadFile(url, filePath);
-
+    if (load.status === "success") {
       return message.reply(
-        `✅ File installed successfully!\n📁 ${fileName}`
+        `✅ Installed: ${fileName}\n` +
+        `📌 Status: Loaded & Ready`
       );
-    } catch (error) {
+    } else {
       return message.reply(
-        `❌ Install failed!\n${error.message}`
+        `✖ Installation failed: ${fileName}\n` +
+        `⚠ Error: ${load.error?.message || "Unknown error"}`
+      );
+    }
+  },
+
+  onReaction: async function ({ Reaction, event, message, api }) {
+
+    if (event.userID !== Reaction.author) return;
+
+    const { rawCode, fileName } = Reaction.data;
+
+    const filePath = path.join(process.cwd(), "scripts", "cmds", fileName);
+
+    fs.writeFileSync(filePath, rawCode);
+
+    const load = global.utils.loadScripts(
+      "cmds",
+      fileName.replace(".js", ""),
+      log,
+      configCommands,
+      api
+    );
+
+    if (load.status === "success") {
+      message.reply(
+        `✅ Overwritten & Reloaded: ${fileName}\n` +
+        `📌 Status: Loaded & Ready`
+      );
+    } else {
+      message.reply(
+        `✖ Overwrite failed: ${fileName}\n` +
+        `⚠ Error: ${load.error?.message || "Unknown error"}`
       );
     }
   }
