@@ -4,119 +4,133 @@ module.exports = {
   config: {
     name: "needgf",
     aliases: ["gf", "girl"],
-    version: "2.0",
+    version: "3.0",
     author: "Sumon",
     shortDescription: "Random GF finder",
-    longDescription: "Automatically selects and mentions a random female member from the group.",
+    longDescription: "Selects a random member using name-based matching.",
     category: "fun",
     guide: "{pn}needgf"
   },
 
   onStart: async function ({ api, event }) {
+    const threadID = event.threadID;
+
     try {
       const threadInfo = await new Promise((resolve, reject) => {
-        api.getThreadInfo(event.threadID, (err, info) => {
+        api.getThreadInfo(threadID, (err, info) => {
           if (err) return reject(err);
           resolve(info);
         });
       });
 
-      let members = threadInfo.participantIDs || [];
+      const members = threadInfo.participantIDs || [];
+      const botID = api.getCurrentUserID();
 
-      // Bot/user নিজেকে বাদ
-      members = members.filter(id => id !== event.senderID);
+      const excludedNames = [
+        "sumon", "ahmed", "robin", "sakib",
+        "rakib", "hasan", "rahim", "karim",
+        "emon", "fahim", "tanvir", "shakil",
+        "arif", "imran", "sajid", "sohel"
+      ];
 
-      if (!members.length) {
-        return api.sendMessage(
-          "❌ এই গ্রুপে অন্য কোনো member পাওয়া যায়নি।",
-          event.threadID
-        );
+      const femaleNames = [
+        "jannat", "sumaiya", "sumaya", "mim",
+        "nusrat", "sadia", "sadia", "maria",
+        "mariya", "ritika", "riya", "priya",
+        "tania", "tasnim", "tamanna", "sanjida",
+        "sanjana", "afrin", "maisha", "mou",
+        "nisha", "sneha", "sneha", "anjum",
+        "lamia", "lima", "mim", "sumi",
+        "sabrina", "farzana", "jui", "akhi",
+        "ishrat", "nabila", "nusrat"
+      ];
+
+      const candidates = members.filter(id =>
+        id !== event.senderID && id !== botID
+      );
+
+      const girls = [];
+
+      for (const id of candidates) {
+        try {
+          const info = await new Promise((resolve, reject) => {
+            api.getUserInfo(id, (err, data) => {
+              if (err) return reject(err);
+              resolve(data);
+            });
+          });
+
+          const user = info && info[id];
+          if (!user || !user.name) continue;
+
+          const name = user.name.toLowerCase();
+
+          const isFemaleName = femaleNames.some(word =>
+            name.split(/[\s._-]+/).includes(word)
+          );
+
+          const isMaleName = excludedNames.some(word =>
+            name.split(/[\s._-]+/).includes(word)
+          );
+
+          if (isFemaleName && !isMaleName) {
+            girls.push({
+              id,
+              name: user.name
+            });
+          }
+        } catch (e) {
+          console.log("Member error:", id, e.message);
+        }
       }
-
-      // সব member-এর profile info নেওয়া
-      const userInfo = await new Promise((resolve, reject) => {
-        api.getUserInfo(members, (err, info) => {
-          if (err) return reject(err);
-          resolve(info);
-        });
-      });
-
-      // Female member খোঁজা
-      const girls = members.filter(id => {
-        const user = userInfo[id];
-        if (!user) return false;
-
-        const gender = String(user.gender || "").toLowerCase();
-
-        return (
-          gender === "female" ||
-          gender === "f" ||
-          gender.includes("female")
-        );
-      });
 
       if (!girls.length) {
         return api.sendMessage(
-          "🥲 এই গ্রুপে কোনো female member খুঁজে পাওয়া গেল না!",
-          event.threadID
+          "🥲 মেয়েদের নামের কোনো ID খুঁজে পাওয়া যায়নি!",
+          threadID
         );
       }
 
-      // Random female নির্বাচন
-      const girlID = girls[Math.floor(Math.random() * girls.length)];
-      const girl = userInfo[girlID];
+      const selected =
+        girls[Math.floor(Math.random() * girls.length)];
 
-      const girlName = girl.name || "Unknown";
+      const imageUrl = "https://i.imgur.com/1G4ZhU7.jpeg";
 
-      // তোমার image URL এখানে
-      const imageUrls = [
-        "https://i.imgur.com/1G4ZhU7.jpeg"
-      ];
-
-      const imageUrl =
-        imageUrls[Math.floor(Math.random() * imageUrls.length)];
-
-      // Image download
-      const image = await axios.get(imageUrl, {
-        responseType: "stream"
+      const response = await axios.get(imageUrl, {
+        responseType: "stream",
+        timeout: 15000
       });
 
       const message =
-`💞 𝐆𝐈𝐑𝐋𝐅𝐑𝐈𝐄𝐍𝐃 𝐑𝐄𝐒𝐔𝐋𝐓 💞
+`💞 𝐘𝐎𝐔𝐑 𝐆𝐅 𝐑𝐄𝐒𝐔𝐋𝐓 💞
 
-💌 তোমার GF Neo 😎
+😎 এই নে তোর সরকারি GF!
 
-👩🏻 𝐆𝐢𝐫𝐥 ➤ ${girlName}
-💗 𝐒𝐭𝐚𝐭𝐮𝐬 ➤ Single 🌚💋
-💖 𝐌𝐨𝐨𝐝 ➤ Cute
-✨ 𝐕𝐢𝐛𝐞 ➤ Premium
+👩🏻 𝐆𝐅 ➤ ${selected.name}
+💗 𝐒𝐭𝐚𝐭𝐮𝐬 ➤ Official GF
+💍 𝐑𝐞𝐥𝐚𝐭𝐢𝐨𝐧 ➤ Just Started
 
-💬 এই নে তোর GF 😌❤️
+❤️ এখন থেকে ভালোভাবে যত্ন নিস!
 
 ━━━━━━━━━━━━━━━━━━
 🤖 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐛𝐲 𝐒𝐮𝐦𝐨𝐧
 ━━━━━━━━━━━━━━━━━━`;
 
-      return api.sendMessage(
-        {
-          body: message,
-          mentions: [
-            {
-              tag: girlName,
-              id: girlID
-            }
-          ],
-          attachment: image.data
-        },
-        event.threadID
-      );
+      return api.sendMessage({
+        body: message,
+        mentions: [{
+          tag: selected.name,
+          id: selected.id
+        }],
+        attachment: response.data
+      }, threadID);
 
     } catch (error) {
-      console.error("NeedGF Error:", error);
+      console.error("NEEDGF ERROR:", error);
 
       return api.sendMessage(
-        "❌ GF খুঁজতে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করো।",
-        event.threadID
+        "❌ সমস্যা হয়েছে: " + error.message,
+        threadID
       );
     }
   }
