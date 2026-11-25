@@ -1,68 +1,140 @@
-const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
-const https = require("https");
-
-function decode(b64) {
-  return Buffer.from(b64, "base64").toString("utf-8");
-}
-
-async function downloadImage(url, filePath) {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(filePath);
-    https.get(url, res => {
-      if (res.statusCode !== 200)
-        return reject(new Error(`Image fetch failed with status: ${res.statusCode}`));
-      res.pipe(file);
-      file.on("finish", () => file.close(resolve));
-    }).on("error", err => {
-      fs.unlink(filePath, () => reject(err));
-    });
-  });
-}
-
-const encodedUrl = "aHR0cHM6Ly9yYXNpbi1hcGlzLm9ucmVuZGVyLmNvbQ==";
-const encodedKey = "cnNfaGVpNTJjbTgtbzRvai11Y2ZjLTR2N2MtZzE=";
+const axios = require("axios");
+const { createCanvas, loadImage } = require("canvas");
 
 module.exports = {
   config: {
     name: "needgf",
-    version: "3.0.1",
-    author: "MOHAMMAD AKASH",
-    countDown: 10,
+    version: "1.0.0",
+    author: "Sumon",
+    countDown: 5,
     role: 0,
-    shortDescription: "তোর Gf এর প্রোফাইল পিক দেখায় 😍",
-    longDescription: "সিঙ্গেলদের জন্য বিশেষ কমান্ড 💔 প্রতি বার নতুন সুন্দরী মেয়ের প্রোফাইল 😚",
+    shortDescription: "Random GF card",
+    longDescription: "Random group member দিয়ে GF card তৈরি করে।",
     category: "fun",
+    guide: {
+      en: "{pn}"
+    }
   },
 
-  onStart: async function ({ message, event }) {
+  onStart: async function ({ api, event }) {
     try {
-      const apiUrl = decode(encodedUrl);
-      const apiKey = decode(encodedKey);
-      const fullUrl = `${apiUrl}/api/rasin/gf?apikey=${apiKey}`;
+      const threadInfo = await api.getThreadInfo(event.threadID);
 
-      const res = await axios.get(fullUrl);
-      const imgUrl = res.data?.data?.url;
+      let members = threadInfo.participantIDs.filter(
+        id => String(id) !== String(api.getCurrentUserID())
+      );
 
-      if (!imgUrl)
-        return message.reply("⚠️ ছবি পাওয়া যায়নি ভাই 😭 আবার চেষ্টা করো!");
+      if (!members.length) {
+        return api.sendMessage(
+          "কোনো group member পাওয়া যায়নি 😅",
+          event.threadID
+        );
+      }
 
-      const imgPath = path.join(__dirname, "tmp", `${event.senderID}_gf.jpg`);
-      await downloadImage(imgUrl, imgPath);
+      // Random member
+      const targetID =
+        members[Math.floor(Math.random() * members.length)];
 
-      const replyMsg = `🌸✨ আপনার ভাগ্য জেগেছে ভাই!\nএমন সুন্দরী গফ সবাই পায় না 💕\n👇 নিচে দেখুন আপনার গফের প্রোফাইল 😚`;
+      let userInfo = {};
 
-      await message.reply({
-        body: replyMsg,
-        attachment: fs.createReadStream(imgPath)
-      });
+      try {
+        userInfo = await api.getUserInfo(targetID);
+      } catch (e) {}
 
-      fs.unlinkSync(imgPath);
+      const name =
+        userInfo[targetID]?.name || "Unknown Member";
 
-    } catch (err) {
-      console.error("❌ Error:", err.message);
-      message.reply("⚠️ কিছু একটা গন্ডগোল হইছে ভাই 😭 পরে আবার চেষ্টা করো!");
+      const avatar =
+        `https://graph.facebook.com/${targetID}/picture?width=720&height=720`;
+
+      const image = await makeGFCard(avatar, name);
+
+      const cacheDir = path.join(__dirname, "cache");
+      await fs.ensureDir(cacheDir);
+
+      const filePath = path.join(
+        cacheDir,
+        `needgf_${Date.now()}.png`
+      );
+
+      await fs.writeFile(filePath, image);
+
+      api.sendMessage(
+        {
+          body: `💘 এই নে tor GF ❤️\n👑 GF: ${name}`,
+          attachment: fs.createReadStream(filePath)
+        },
+        event.threadID,
+        () => {
+          setTimeout(() => {
+            try {
+              fs.unlinkSync(filePath);
+            } catch (e) {}
+          }, 15000);
+        }
+      );
+
+    } catch (error) {
+      console.error("needgf error:", error);
+
+      return api.sendMessage(
+        "❌ GF card বানাতে সমস্যা হয়েছে।",
+        event.threadID
+      );
     }
   }
 };
+
+
+async function makeGFCard(avatarURL, name) {
+
+  const W = 1080;
+  const H = 1350;
+
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext("2d");
+
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+
+  bg.addColorStop(0, "#08000d");
+  bg.addColorStop(0.5, "#25002f");
+  bg.addColorStop(1, "#050008");
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+
+  // Glow
+  const glow = ctx.createRadialGradient(
+    250,
+    300,
+    20,
+    250,
+    300,
+    500
+  );
+
+  glow.addColorStop(
+    0,
+    "rgba(255,0,180,.35)"
+  );
+
+  glow.addColorStop(
+    1,
+    "rgba(255,0,180,0)"
+  );
+
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+
+  // Hearts
+  ctx.font = "80px Arial";
+
+  ctx.fillStyle = "#ff38cf";
+
+  ctx.fillText("♥", 80, 120);
+  ctx
