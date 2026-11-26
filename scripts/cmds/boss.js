@@ -1,33 +1,16 @@
 module.exports = {
   config: {
     name: "boss",
-    aliases: ["sumon"],
+    aliases: ["owner", "sumon"],
     version: "1.0",
     author: "Ahmed Sumon",
     shortDescription: "Boss information",
-    longDescription: "Shows boss information without prefix.",
-    category: "info"
+    longDescription: "Shows boss information",
+    category: "info",
+    guide: "{pn}boss"
   },
 
-  onChat: async function ({ api, event }) {
-    if (!event.body) return;
-
-    const text = event.body.trim().toLowerCase();
-
-    // Message-এর শুরুতে boss/sumon থাকতে হবে
-    if (!text.startsWith("boss") && !text.startsWith("sumon")) {
-      return;
-    }
-
-    // boss/sumon-এর পরে অবশ্যই space বা punctuation থাকতে হবে
-    // যেমন: "boss k", "boss?", "boss!" কাজ করবে
-    // কিন্তু "bossman" কাজ করবে না
-    const firstWord = text.split(/\s+/)[0].replace(/[!?.,]+$/, "");
-
-    if (firstWord !== "boss" && firstWord !== "sumon") {
-      return;
-    }
-
+  onStart: async function ({ api, event }) {
     const msg = `
 ╭━━━━━━━━━━━━━━━━━━╮
 ┃ 👑 𝗕𝗢𝗦𝗦 𝗜𝗡𝗙𝗢
