@@ -1,29 +1,17 @@
-const fs = require("fs-extra");
-const path = require("path");
-
 module.exports = {
   config: {
     name: "intro",
     aliases: ["about", "botinfo"],
-    version: "2.0",
+    version: "1.1",
     author: "Sumon",
     shortDescription: "Sizuka Minamoto Introduction",
-    longDescription: "Shows bot introduction with video",
+    longDescription: "Shows bot introduction",
     category: "info",
     guide: "{pn}intro"
   },
 
-  onStart: async function ({ message, event }) {
-    try {
-      const videoPath = path.join(__dirname, "sizuka.mp4");
-
-      if (!fs.existsSync(videoPath)) {
-        return message.reply(
-          "❌ sizuka.mp4 পাওয়া যায়নি!\n\nintro.js-এর একই folder-এ sizuka.mp4 রাখো।"
-        );
-      }
-
-      const intro = `
+  onStart: async function ({ api, event }) {
+    const intro = `
 ╔════════════════════╗
     🌸 𝗦𝗜𝗭𝗨𝗞𝗔 𝗠𝗜𝗡𝗔𝗠𝗢𝗧𝗢 🌸
 ╚════════════════════╝
@@ -65,14 +53,6 @@ module.exports = {
           🌸 𝗛𝗔𝗩𝗘 𝗔 𝗡𝗜𝗖𝗘 𝗗𝗔𝗬 🌸
 `;
 
-      await message.reply({
-        body: intro,
-        attachment: fs.createReadStream(videoPath)
-      });
-
-    } catch (error) {
-      console.error("INTRO ERROR:", error);
-      return message.reply("❌ Intro video পাঠাতে সমস্যা হয়েছে!");
-    }
+    return api.sendMessage(intro, event.threadID, event.messageID);
   }
 };
