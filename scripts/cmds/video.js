@@ -31,7 +31,7 @@ module.exports = {
                         noInput: "× Baby, please provide a video name or link!",
                         noResult: "× No results found.",
                         success: "✅ 𝙃𝙚𝙧𝙚'𝙨 𝙮𝙤𝙪𝙧 𝙫𝙞𝙙𝙚𝙤 𝙗𝙖𝙗𝙮\n\n• 𝐓𝐢𝐭𝐥𝐞: %1",
-                        error: "× API error: %1. Contact Sumon for help.\n•WhatsApp: 01615197003"
+                        error: "× API error: %1. Contact sumon for help.\n•WhatsApp: 01615197003"
                 },
                 vi: {
                         noInput: "× Cưng ơi, vui lòng cung cấp tên hoặc liên kết video!",
@@ -51,7 +51,7 @@ module.exports = {
                 if (!input) return message.reply(getLang("noInput"));
 
                 try {
-                        api.setMessageReaction("🐤", event.messageID, () => {}, true);
+                        api.setMessageReaction("🕵️‍♂️", event.messageID, () => {}, true);
                         
                         const apiUrl = await baseApiUrl();
                         const checkurl = /^(?:https?:\/\/)?(?:m\.|www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))((\w|-){11})(?:\S+)?$/;
