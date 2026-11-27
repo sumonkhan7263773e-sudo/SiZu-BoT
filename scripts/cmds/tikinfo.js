@@ -13,7 +13,7 @@ module.exports = {
     shortDescription: "TikTok profile info",
     longDescription: "TikTok username dile sundor profile info dibe",
     category: "info",
-    guide: "{pn}tikinfo <username>\nExample: {pn}tikinfo gaanghor_official"
+    guide: "{pn}tikinfo <username>\nExample: {pn}tikinfo Zenvo_official"
   },
 
   onStart: async function ({ api, event, args }) {
