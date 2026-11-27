@@ -215,9 +215,9 @@ module.exports = {
     // 𝐑𝐀𝐍𝐃𝐎𝐌 𝐆𝐈𝐅
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const gifURLs = [
-      "https://files.catbox.moe/8an6at.mp4",
-      "https://files.catbox.moe/bzadgk.mp4",
-      "https://files.catbox.moe/hde781.mp4"
+      "https://i.imgur.com/Xw6JTfn.gif",
+      "https://i.imgur.com/mW0yjZb.gif",
+      "https://i.imgur.com/KQBcxOV.gif"
     ];
 
     const randomGifURL =
