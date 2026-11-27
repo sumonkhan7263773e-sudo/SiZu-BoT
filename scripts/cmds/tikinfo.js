@@ -5,15 +5,15 @@ const path = require("path");
 module.exports = {
   config: {
     name: "tikinfo",
-    aliases: ["tiktokinfo", "ttinfo"],
-    version: "3.0",
+    aliases: ["tiktokinfo", "ttinfo", "tik"],
+    version: "4.0",
     author: "Ahmed Sumon",
     countDown: 5,
     role: 0,
-    shortDescription: "TikTok profile screenshot",
-    longDescription: "TikTok username dile profile er screenshot dibe",
+    shortDescription: "TikTok profile info",
+    longDescription: "TikTok username dile sundor profile info dibe",
     category: "info",
-    guide: "{pn}tikinfo <username>"
+    guide: "{pn}tikinfo <username>\nExample: {pn}tikinfo gaanghor_official"
   },
 
   onStart: async function ({ api, event, args }) {
@@ -21,62 +21,73 @@ module.exports = {
     let username = (args[0] || "").trim();
 
     if (!username) {
-      return api.sendMessage("❌ Username de!\nExample: !tikinfo mrbeast", threadID, messageID);
+      return api.sendMessage("❌ Username de!\nExample: !tikinfo gaanghor_official", threadID, messageID);
     }
 
     username = username.replace("@", "").replace("https://www.tiktok.com/@", "").split("/")[0].split("?")[0].split(" ")[0];
 
-    api.sendMessage(`⏳ @${username} er profile er screenshot tultesi, ektu wait kor...`, threadID, messageID);
-
     try {
+      // TikWM API - BD server e chole
+      const infoRes = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${username}`, {
+        timeout: 15000,
+        headers: { "User-Agent": "Mozilla/5.0" }
+      });
+
+      const u = infoRes.data?.data?.user;
+      const stats = infoRes.data?.data?.stats;
+
+      if (!u) {
+        return api.sendMessage(`❌ @${username} nam e kono user pailam na.\nUsername ta check kor.`, threadID, messageID);
+      }
+
+      // Sundor kore sajano msg
+      const msg = `╭───🎵 𝗧𝗜𝗞𝗧𝗢𝗞 𝗣𝗥𝗢𝗙𝗜𝗟𝗘 ───╮\n` +
+      `│\n` +
+      `│ 👤 𝗡𝗮𝗺𝗲 : ${u.nickname}\n` +
+      `│ 🆔 𝗨𝘀𝗲𝗿 : @${u.unique_id}\n` +
+      `│ ✅ 𝗩𝗲𝗿𝗶𝗳𝗶𝗲𝗱 : ${u.verified ? "Yes ✔️" : "No ✖️"}\n` +
+      `│\n` +
+      `│ 📝 𝗕𝗶𝗼 :\n` +
+      `│ ${u.signature || "No Bio"}\n` +
+      `│\n` +
+      `│ ━━━━━━━━━━━━━━━\n` +
+      `│ 👥 𝗙𝗼𝗹𝗹𝗼𝘄𝗲𝗿𝘀 : ${Number(u.follower_count || 0).toLocaleString()}\n` +
+      `│ 👤 𝗙𝗼𝗹𝗹𝗼𝘄𝗶𝗻𝗴 : ${Number(u.following_count || 0).toLocaleString()}\n` +
+      `│ ❤️ 𝗧𝗼𝘁𝗮𝗹 𝗟𝗶𝗸𝗲𝘀 : ${Number(u.total_favorited || 0).toLocaleString()}\n` +
+      `│ 🎬 𝗩𝗶𝗱𝗲𝗼𝘀 : ${Number(u.video_count || 0).toLocaleString()}\n` +
+      `│ 🌍 𝗥𝗲𝗴𝗶𝗼𝗻 : ${u.region || "BD"}\n` +
+      `│\n` +
+      `│ 🔗 𝗟𝗶𝗻𝗸 : tiktok.com/@${u.unique_id}\n` +
+      `│\n` +
+      `╰───💙 𝗔𝗵𝗺𝗲𝗱 𝗦𝘂𝗺𝗼𝗻 ───╯`;
+
       const cacheDir = path.join(__dirname, "cache");
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-      const shotPath = path.join(cacheDir, `tik_${Date.now()}.jpg`);
+      const avatarPath = path.join(cacheDir, `tik_${Date.now()}.jpg`);
 
-      // Screenshot API - 2 ta try korbo, ekta fail hoile arekta
-      let done = false;
-      const shotUrls = [
-        `https://image.thum.io/get/width/720/crop/900/noanimate/https://www.tiktok.com/@${username}`,
-        `https://s.wordpress.com/mshots/v1/https://www.tiktok.com/@${username}?w=720`
-      ];
-
-      for (const url of shotUrls) {
-        try {
-          const res = await axios.get(url, { responseType: "arraybuffer", timeout: 25000, headers: { "User-Agent": "Mozilla/5.0" } });
-          if (res.data && res.data.length > 5000) {
-            fs.writeFileSync(shotPath, Buffer.from(res.data));
-            done = true;
-            break;
-          }
-        } catch (e) { console.log("SHOT TRY FAIL:", e.message); }
-      }
-
-      if (!done) {
-        return api.sendMessage(`❌ Screenshot tulte parlam na. TikTok hoyto block korse.\nLink ta nije dekh: https://www.tiktok.com/@${username}`, threadID, messageID);
-      }
-
-      // Info try korbo, na paileo screenshot jabe
-      let infoText = "";
+      let attachment = null;
       try {
-        const infoRes = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${username}`, { timeout: 10000 });
-        const u = infoRes.data?.data?.user;
-        if (u) {
-          infoText = `\n👤 Name: ${u.nickname}\n🆔 Username: @${u.unique_id}\n👥 Followers: ${u.follower_count?.toLocaleString()}\n❤️ Likes: ${u.total_favorited?.toLocaleString()}\n🎬 Videos: ${u.video_count}\n📝 Bio: ${u.signature || "No Bio"}\n`;
+        if (u.avatar_larger) {
+          const avRes = await axios.get(u.avatar_larger, {
+            responseType: "arraybuffer",
+            timeout: 15000,
+            headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://www.tiktok.com/" }
+          });
+          fs.writeFileSync(avatarPath, Buffer.from(avRes.data));
+          attachment = fs.createReadStream(avatarPath);
         }
-      } catch (e) { console.log("INFO FAIL:", e.message); }
-
-      const msg = `🎵 𝗧𝗜𝗞𝗧𝗢𝗞 𝗣𝗥𝗢𝗙𝗜𝗟𝗘\n━━━━━━━━━━━━━━\n🔗 https://www.tiktok.com/@${username}${infoText}\n━━━━━━━━━━━━━━\n📸 Screenshot niche 👇`;
+      } catch (e) { console.log("AVATAR FAIL:", e.message); }
 
       api.sendMessage(
-        { body: msg, attachment: fs.createReadStream(shotPath) },
+        { body: msg, attachment: attachment || undefined },
         threadID,
-        () => { if (fs.existsSync(shotPath)) fs.unlinkSync(shotPath); },
+        () => { if (fs.existsSync(avatarPath)) fs.unlinkSync(avatarPath); },
         messageID
       );
 
     } catch (e) {
       console.log("TIKINFO ERROR:", e.message);
-      api.sendMessage(`❌ Error: ${e.message}\nLink: https://www.tiktok.com/@${username}`, threadID, messageID);
+      api.sendMessage(`❌ Hoilo na!\nTikTok server busy. 1 min por abar try kor:\n!tikinfo ${username}`, threadID, messageID);
     }
   }
 };
