@@ -22,21 +22,21 @@ module.exports = {
 
   onStart: async function ({ message, event, args, api }) {
     const { participantIDs } = event;
-    const lengthAllUser = participantIDs.length;
+    const text = args.join(" ") || "Hey Everyone! 👀";
+    
+    // Body ta age banai, tarpor prottek member er jonno 1 ta kore char rakhbo
+    let body = text + "\n";
     const mentions = [];
-    let body = args.join(" ") || "@all";
-    let bodyLength = body.length;
-    let i = 0;
-    for (const uid of participantIDs) {
-      let fromIndex = 0;
-      if (bodyLength < lengthAllUser) {
-        body += body[bodyLength - 1];
-        bodyLength++;
-      }
-      if (body.slice(0, i).lastIndexOf(body[i]) != -1) fromIndex = i;
-      mentions.push({ tag: body[i], id: uid, fromIndex });
-      i++;
+    
+    // Prottek member er jonno alada position
+    for (let i = 0; i < participantIDs.length; i++) {
+      const uid = participantIDs[i];
+      const fromIndex = body.length;
+      body += "•"; // 1 ta char = 1 ta mention
+      mentions.push({ tag: "•", id: uid, fromIndex });
     }
+
+    body += "\n\n👥 Sobai ke mention dewa hoise!";
 
     try {
       const cacheDir = path.join(__dirname, "cache");
@@ -59,7 +59,6 @@ module.exports = {
         event.messageID
       );
     } catch (e) {
-      // Photo na asle sudhu mention jabe
       message.reply({ body, mentions });
       console.log("ALL ERROR:", e.message);
     }
