@@ -1,4 +1,6 @@
 const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
 
 module.exports = {
   config: {
@@ -12,9 +14,10 @@ module.exports = {
     guide: "{pn}intro"
   },
 
-  onStart: async function ({ api, event }) {
+  onStart: async function ({ message, event }) {
+    try {
 
-    const intro = `
+      const intro = `
 ╔════════════════════╗
     🌸 𝗦𝗜𝗭𝗨𝗞𝗔 𝗠𝗜𝗡𝗔𝗠𝗢𝗧𝗢 🌸
 ╚════════════════════╝
@@ -56,33 +59,44 @@ module.exports = {
           🌸 𝗛𝗔𝗩𝗘 𝗔 𝗡𝗜𝗖𝗘 𝗗𝗔𝗬 🌸
 `;
 
-    const videoUrl =
-      "https://yourimageshare.com/ib/xikdIPHiCW.mp4";
+      // তোমার ভিডিওর Direct MP4 link
+      const videoUrl = "https://yourimageshare.com/ib/xikdIPHiCW.mp4";
 
-    try {
-      const video = await axios.get(videoUrl, {
-        responseType: "arraybuffer"
-      });
+      // tmp folder তৈরি
+      const tmpDir = path.join(__dirname, "tmp");
+      await fs.ensureDir(tmpDir);
 
-      return api.sendMessage(
-        {
-          body: intro,
-          attachment: {
-            type: "video",
-            data: Buffer.from(video.data)
-          }
-        },
-        event.threadID,
-        event.messageID
+      const videoPath = path.join(
+        tmpDir,
+        `${event.senderID}_sizuka_intro.mp4`
       );
 
-    } catch (error) {
-      console.log("VIDEO ERROR:", error.message);
+      // ভিডিও download
+      const response = await axios.get(videoUrl, {
+        responseType: "arraybuffer",
+        timeout: 60000
+      });
 
-      return api.sendMessage(
-        intro,
-        event.threadID,
-        event.messageID
+      await fs.writeFile(videoPath, Buffer.from(response.data));
+
+      // Text + Video পাঠাবে
+      await message.reply({
+        body: intro,
+        attachment: fs.createReadStream(videoPath)
+      });
+
+      // পাঠানোর পর temporary video delete
+      setTimeout(async () => {
+        try {
+          await fs.remove(videoPath);
+        } catch (e) {}
+      }, 10000);
+
+    } catch (err) {
+      console.error("❌ INTRO VIDEO ERROR:", err);
+
+      message.reply(
+        "⚠️ Intro video পাঠানো যায়নি!\nআবার চেষ্টা করো।"
       );
     }
   }
