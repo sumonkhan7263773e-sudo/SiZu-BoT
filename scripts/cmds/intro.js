@@ -1,6 +1,4 @@
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
 
 module.exports = {
   config: {
@@ -15,6 +13,7 @@ module.exports = {
   },
 
   onStart: async function ({ api, event }) {
+
     const intro = `
 ╔════════════════════╗
     🌸 𝗦𝗜𝗭𝗨𝗞𝗔 𝗠𝗜𝗡𝗔𝗠𝗢𝗧𝗢 🌸
@@ -57,42 +56,34 @@ module.exports = {
           🌸 𝗛𝗔𝗩𝗘 𝗔 𝗡𝗜𝗖𝗘 𝗗𝗔𝗬 🌸
 `;
 
-    const videoUrl = "https://yourimageshare.com/ib/xikdIPHiCW.mp4";
-    const videoPath = path.join(__dirname, "sizuka_intro.mp4");
+    const videoUrl =
+      "https://yourimageshare.com/ib/xikdIPHiCW.mp4";
 
     try {
-      const response = await axios({
-        method: "GET",
-        url: videoUrl,
-        responseType: "stream"
+      const video = await axios.get(videoUrl, {
+        responseType: "arraybuffer"
       });
 
-      const writer = fs.createWriteStream(videoPath);
-
-      response.data.pipe(writer);
-
-      writer.on("finish", () => {
-        api.sendMessage(
-          {
-            body: intro,
-            attachment: fs.createReadStream(videoPath)
-          },
-          event.threadID,
-          () => {
-            try {
-              fs.unlinkSync(videoPath);
-            } catch (e) {}
-          },
-          event.messageID
-        );
-      });
-
-      writer.on("error", () => {
-        api.sendMessage(intro, event.threadID, event.messageID);
-      });
+      return api.sendMessage(
+        {
+          body: intro,
+          attachment: {
+            type: "video",
+            data: Buffer.from(video.data)
+          }
+        },
+        event.threadID,
+        event.messageID
+      );
 
     } catch (error) {
-      api.sendMessage(intro, event.threadID, event.messageID);
+      console.log("VIDEO ERROR:", error.message);
+
+      return api.sendMessage(
+        intro,
+        event.threadID,
+        event.messageID
+      );
     }
   }
 };
