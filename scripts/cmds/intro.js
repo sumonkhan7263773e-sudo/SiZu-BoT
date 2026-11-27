@@ -53,7 +53,7 @@ module.exports = {
       }
 
       // Intro video
-      const videoLink = "https://files.catbox.moe/oyosmx.mp4";
+      const videoLink = "https://files.catbox.moe/jxdb6v.mp4";
 
       const res = await axios.get(videoLink, {
         responseType: "arraybuffer",
