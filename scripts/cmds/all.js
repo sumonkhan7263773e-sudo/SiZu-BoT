@@ -5,38 +5,38 @@ const path = require("path");
 module.exports = {
   config: {
     name: "all",
-    version: "1.2",
+    version: "1.3",
     author: "NTKhang",
     countDown: 5,
     role: 1,
     description: {
-      vi: "Tag tất cả thành viên trong nhóm chat của bạn",
       en: "Tag all members in your group chat"
     },
     category: "box chat",
     guide: {
-      vi: " {pn} [nội dung | để trống]",
       en: " {pn} [content | empty]"
     }
   },
 
-  onStart: async function ({ message, event, args, api }) {
+  onStart: async function ({ message, event, args }) {
     const { participantIDs } = event;
     const text = args.join(" ") || "Hey Everyone! 👀";
-    
-    // Body ta age banai, tarpor prottek member er jonno 1 ta kore char rakhbo
-    let body = text + "\n";
+
+    // Mention er jonno body banano
+    let body = text + "\n\n";
     const mentions = [];
-    
-    // Prottek member er jonno alada position
-    for (let i = 0; i < participantIDs.length; i++) {
-      const uid = participantIDs[i];
+
+    for (const uid of participantIDs) {
       const fromIndex = body.length;
-      body += "•"; // 1 ta char = 1 ta mention
-      mentions.push({ tag: "•", id: uid, fromIndex });
+      body += "@";
+      mentions.push({
+        tag: "@",
+        id: uid,
+        fromIndex: fromIndex
+      });
     }
 
-    body += "\n\n👥 Sobai ke mention dewa hoise!";
+    body += "\n\n👥 Sobai ekto attention dao!";
 
     try {
       const cacheDir = path.join(__dirname, "cache");
@@ -44,23 +44,20 @@ module.exports = {
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 
       const imgLink = "https://files.catbox.moe/qzsxe2.jpeg";
-
       const res = await axios.get(imgLink, { responseType: "arraybuffer" });
       fs.writeFileSync(imgPath, Buffer.from(res.data));
 
-      api.sendMessage(
-        {
-          body,
-          mentions,
-          attachment: fs.createReadStream(imgPath)
-        },
-        event.threadID,
-        () => fs.unlinkSync(imgPath),
-        event.messageID
-      );
+      // message.reply diye mention + photo - eitai kaj korbe
+      await message.reply({
+        body: body,
+        mentions: mentions,
+        attachment: fs.createReadStream(imgPath)
+      });
+      fs.unlinkSync(imgPath);
     } catch (e) {
-      message.reply({ body, mentions });
       console.log("ALL ERROR:", e.message);
+      // Photo na asleo mention jabe
+      await message.reply({ body, mentions });
     }
   }
 };
