@@ -10,33 +10,30 @@ module.exports = {
     role: 0,
     shortDescription: "Owner information with image",
     category: "Information",
-    guide: {
-      en: "owner"
-    }
+    guide: { en: "owner" }
   },
 
   onStart: async function ({ api, event }) {
-    const ownerText = 
-`╭─ 👑 Oᴡɴᴇʀ Iɴғᴏ 👑 ─╮
-│ 👤 Nᴀᴍᴇ       : ᴀʜᴍᴇᴅ Sᴜᴍᴏɴ 亗
-│ 🧸 Nɪᴄᴋ       : Sᴜᴍᴏɴ
-│ 🎂 Aɢᴇ        : 19+
+    const ownerText = `╭─ 👑 Oᴡɴᴇʀ Iɴғᴏ 👑 ─╮
+│ 👤 Nᴀᴍᴇ : ᴀʜᴍᴇᴅ Sᴜᴍᴏɴ 亗
+│ 🧸 Nɪᴄᴋ : Sᴜᴍᴏɴ
+│ 🎂 Aɢᴇ : 19+
 │ 💘 Rᴇʟᴀᴛɪᴏɴ : Sɪɴɢʟᴇ
 │ 🎓 Pʀᴏғᴇssɪᴏɴ : Job
 │ 📚 Eᴅᴜᴄᴀᴛɪᴏɴ : SSC - 2024
 │ 🏡 Lᴏᴄᴀᴛɪᴏɴ : ᴍʏᴍᴇɴsɪɴɢʜ
 ├─ 🔗 Cᴏɴᴛᴀᴄᴛ ─╮
-│ 📘 Facebook  : fb.com/AhmedSumon8790 
-│ 💬 Messenger: m.me/61576385979018 
-│ 📞 WhatsApp  : wa.me/01615197003
+│ 📘 Facebook : fb.com/AhmedSumon8790
+│ 💬 Messenger: m.me/61576385979018
+│ 📞 WhatsApp : wa.me/01615197003
 ╰────────────────╯`;
 
     const cacheDir = path.join(__dirname, "cache");
-    const imgPath = path.join(cacheDir, "owner.jpg");
+    const imgPath = path.join(cacheDir, "owner.png");
+    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
-
-    const imgLink = "https://imgur.com/a/iA92zWI.jpg";
+    // 👇 TOR PIC ER LINK BOSANO HOISE
+    const imgLink = "https://files.catbox.moe/0o0920.png";
 
     const send = () => {
       api.sendMessage(
