@@ -47,7 +47,7 @@ module.exports = {
     // ON korle 1st video, OFF korle 2nd video
     if (sub === "on") {
       wl.enable = true; persist();
-      return sendWithVideo(api, event.threadID, event.messageID, getLang("on"), "https://files.catbox.moe/8an6at.mp4", "wl_on.mp4");
+      return sendWithVideo(api, event.threadID, event.messageID, getLang("on"), "https://files.catbox.moe/yti8si.mp4", "wl_on.mp4");
     }
     if (sub === "off") {
       wl.enable = false; persist();
