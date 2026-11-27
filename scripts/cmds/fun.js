@@ -5,18 +5,18 @@ const path = require("path");
 module.exports = {
   config: {
     name: "fun",
-    version: "1.0",
+    version: "1.1",
     author: "Ahmed Sumon",
     countDown: 5,
     role: 1,
-    shortDescription: "Random fun pic + everyone tag",
-    longDescription: "Prottek bar alada alada pic/video diye everyone ke tag dibe",
+    shortDescription: "Random fun pic/video",
+    longDescription: "Prottek bar alada alada pic/video dibe",
     category: "fun",
     guide: "{pn}fun"
   },
 
-  onStart: async function ({ api, event, usersData }) {
-    const { participantIDs, threadID, messageID } = event;
+  onStart: async function ({ api, event }) {
+    const { threadID, messageID } = event;
 
     const mediaList = [
       "https://files.catbox.moe/aut8y0.mp4",
@@ -47,31 +47,16 @@ module.exports = {
     ];
 
     const funTexts = [
-      "😂 EVERYONE DEKHO EITA! 🤣",
-      "🔥 EVERYONE ASO MOJA HOBE! 😆",
-      "👀 EVERYONE EITA MISS KOIRO NA! 😹",
-      "🤣 EVERYONE HASO EKTU! 😂",
-      "😈 EVERYONE KE DHORLAM! 🔥",
-      "💥 EVERYONE READY TO? 😆"
+      "😂 DEKHO EITA! 🤣",
+      "🔥 MOJA HOBE! 😆",
+      "👀 EITA MISS KOIRO NA! 😹",
+      "🤣 HASO EKTU! 😂",
+      "😈 DHORLAM! 🔥",
+      "💥 READY TO? 😆"
     ];
 
-    // Random pic/video + random text
     const randomMedia = mediaList[Math.floor(Math.random() * mediaList.length)];
     const randomText = funTexts[Math.floor(Math.random() * funTexts.length)];
-
-    // Everyone tag - nam diye
-    let body = randomText + "\n\n";
-    const mentions = [];
-
-    for (const uid of participantIDs) {
-      const name = await usersData.getName(uid).catch(() => "Member");
-      const fromIndex = body.length;
-      const tag = `@${name}`;
-      body += tag + " ";
-      mentions.push({ tag, id: uid, fromIndex });
-    }
-
-    body += "\n\n😂 FUN TIME! 😂";
 
     try {
       const cacheDir = path.join(__dirname, "cache");
@@ -85,14 +70,14 @@ module.exports = {
       fs.writeFileSync(filePath, Buffer.from(res.data));
 
       api.sendMessage(
-        { body, mentions, attachment: fs.createReadStream(filePath) },
+        { body: randomText, attachment: fs.createReadStream(filePath) },
         threadID,
         () => fs.unlinkSync(filePath),
         messageID
       );
     } catch (e) {
       console.log("FUN ERROR:", e.message);
-      api.sendMessage({ body, mentions }, threadID, messageID);
+      api.sendMessage(randomText, threadID, messageID);
     }
   }
 };
