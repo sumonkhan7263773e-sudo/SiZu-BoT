@@ -6,14 +6,14 @@ module.exports = {
   config: {
     name: "tikinfo",
     aliases: ["tiktokinfo", "ttinfo"],
-    version: "2.0",
+    version: "3.0",
     author: "Ahmed Sumon",
     countDown: 5,
     role: 0,
-    shortDescription: "TikTok profile info + screenshot",
-    longDescription: "TikTok username dile profile info + screenshot dibe",
+    shortDescription: "TikTok profile screenshot",
+    longDescription: "TikTok username dile profile er screenshot dibe",
     category: "info",
-    guide: "{pn}tikinfo <tiktok username>\nExample: {pn}tikinfo @mrbeast"
+    guide: "{pn}tikinfo <username>"
   },
 
   onStart: async function ({ api, event, args }) {
@@ -21,82 +21,62 @@ module.exports = {
     let username = (args[0] || "").trim();
 
     if (!username) {
-      return api.sendMessage("❌ Username de!\nExample: !tikinfo @ahmed_sumon6749", threadID, messageID);
+      return api.sendMessage("❌ Username de!\nExample: !tikinfo mrbeast", threadID, messageID);
     }
 
-    // @ thakle soraiya de
-    username = username.replace("@", "").replace("https://www.tiktok.com/@", "").split("/")[0].split("?")[0];
+    username = username.replace("@", "").replace("https://www.tiktok.com/@", "").split("/")[0].split("?")[0].split(" ")[0];
+
+    api.sendMessage(`⏳ @${username} er profile er screenshot tultesi, ektu wait kor...`, threadID, messageID);
 
     try {
-      // 1. TikTok Info - tikwm API (BD server e chole)
-      const infoRes = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${username}`, {
-        timeout: 15000,
-        headers: { "User-Agent": "Mozilla/5.0" }
-      });
-
-      const data = infoRes.data?.data?.user;
-
-      if (!data) {
-        return api.sendMessage(`❌ @${username} nam e kono TikTok user pailam na. Username ta thik ache kina check kor.`, threadID, messageID);
-      }
-
-      const msg = `╭━━━━━━━━━━━━━━━━━━╮
-┃ 🎵 𝗧𝗜𝗞𝗧𝗢𝗞 𝗜𝗡𝗙𝗢
-╰━━━━━━━━━━━━━━━━━━╯
-👤 𝗡𝗮𝗺𝗲 : ${data.nickname || "N/A"}
-🆔 𝗨𝘀𝗲𝗿𝗻𝗮𝗺𝗲 : @${data.unique_id}
-🆔 𝗨𝗜𝗗 : ${data.uid || "N/A"}
-✅ 𝗩𝗲𝗿𝗶𝗳𝗶𝗲𝗱 : ${data.verified ? "Yes ✅" : "No ❌"}
-📝 𝗕𝗶𝗼 : ${data.signature || "No Bio"}
-👥 𝗙𝗼𝗹𝗹𝗼𝘄𝗲𝗿𝘀 : ${data.follower_count?.toLocaleString() || "0"}
-👤 𝗙𝗼𝗹𝗹𝗼𝘄𝗶𝗻𝗴 : ${data.following_count?.toLocaleString() || "0"}
-❤️ 𝗟𝗶𝗸𝗲𝘀 : ${data.total_favorited?.toLocaleString() || "0"}
-🎬 𝗩𝗶𝗱𝗲𝗼𝘀 : ${data.video_count?.toLocaleString() || "0"}
-🌍 𝗥𝗲𝗴𝗶𝗼𝗻 : ${data.region || "N/A"}
-🔗 𝗟𝗶𝗻𝗸 : https://www.tiktok.com/@${data.unique_id}
-╭━━━━━━━━━━━━━━━━━━╮
-┃ 💙 𝗔𝗵𝗺𝗲𝗱 𝗦𝘂𝗺𝗼𝗻
-╰━━━━━━━━━━━━━━━━━━╯`;
-
       const cacheDir = path.join(__dirname, "cache");
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      const shotPath = path.join(cacheDir, `tik_${Date.now()}.jpg`);
 
-      // 2. Screenshot - thum.io diye (puppeteer lagbe na)
-      const shotPath = path.join(cacheDir, `tik_${username}.jpg`);
-      const avatarPath = path.join(cacheDir, `tik_av_${username}.jpg`);
+      // Screenshot API - 2 ta try korbo, ekta fail hoile arekta
+      let done = false;
+      const shotUrls = [
+        `https://image.thum.io/get/width/720/crop/900/noanimate/https://www.tiktok.com/@${username}`,
+        `https://s.wordpress.com/mshots/v1/https://www.tiktok.com/@${username}?w=720`
+      ];
 
-      let attachments = [];
+      for (const url of shotUrls) {
+        try {
+          const res = await axios.get(url, { responseType: "arraybuffer", timeout: 25000, headers: { "User-Agent": "Mozilla/5.0" } });
+          if (res.data && res.data.length > 5000) {
+            fs.writeFileSync(shotPath, Buffer.from(res.data));
+            done = true;
+            break;
+          }
+        } catch (e) { console.log("SHOT TRY FAIL:", e.message); }
+      }
 
+      if (!done) {
+        return api.sendMessage(`❌ Screenshot tulte parlam na. TikTok hoyto block korse.\nLink ta nije dekh: https://www.tiktok.com/@${username}`, threadID, messageID);
+      }
+
+      // Info try korbo, na paileo screenshot jabe
+      let infoText = "";
       try {
-        // Screenshot
-        const shotUrl = `https://image.thum.io/get/width/720/crop/900/noanimate/https://www.tiktok.com/@${username}`;
-        const shotRes = await axios.get(shotUrl, { responseType: "arraybuffer", timeout: 20000 });
-        fs.writeFileSync(shotPath, Buffer.from(shotRes.data));
-        attachments.push(fs.createReadStream(shotPath));
-      } catch (e) { console.log("SHOT ERROR:", e.message); }
-
-      try {
-        // Avatar
-        if (data.avatar_larger) {
-          const avRes = await axios.get(data.avatar_larger, { responseType: "arraybuffer", timeout: 15000, headers: { "User-Agent": "Mozilla/5.0" } });
-          fs.writeFileSync(avatarPath, Buffer.from(avRes.data));
-          attachments.push(fs.createReadStream(avatarPath));
+        const infoRes = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${username}`, { timeout: 10000 });
+        const u = infoRes.data?.data?.user;
+        if (u) {
+          infoText = `\n👤 Name: ${u.nickname}\n🆔 Username: @${u.unique_id}\n👥 Followers: ${u.follower_count?.toLocaleString()}\n❤️ Likes: ${u.total_favorited?.toLocaleString()}\n🎬 Videos: ${u.video_count}\n📝 Bio: ${u.signature || "No Bio"}\n`;
         }
-      } catch (e) { console.log("AVATAR ERROR:", e.message); }
+      } catch (e) { console.log("INFO FAIL:", e.message); }
+
+      const msg = `🎵 𝗧𝗜𝗞𝗧𝗢𝗞 𝗣𝗥𝗢𝗙𝗜𝗟𝗘\n━━━━━━━━━━━━━━\n🔗 https://www.tiktok.com/@${username}${infoText}\n━━━━━━━━━━━━━━\n📸 Screenshot niche 👇`;
 
       api.sendMessage(
-        { body: msg, attachment: attachments.length ? attachments : undefined },
+        { body: msg, attachment: fs.createReadStream(shotPath) },
         threadID,
-        () => {
-          if (fs.existsSync(shotPath)) fs.unlinkSync(shotPath);
-          if (fs.existsSync(avatarPath)) fs.unlinkSync(avatarPath);
-        },
+        () => { if (fs.existsSync(shotPath)) fs.unlinkSync(shotPath); },
         messageID
       );
 
     } catch (e) {
       console.log("TIKINFO ERROR:", e.message);
-      return api.sendMessage(`❌ Hoilo na re! TikTok server busy ba username vul.\nAbar try kor: !tikinfo ${username}`, threadID, messageID);
+      api.sendMessage(`❌ Error: ${e.message}\nLink: https://www.tiktok.com/@${username}`, threadID, messageID);
     }
   }
 };
