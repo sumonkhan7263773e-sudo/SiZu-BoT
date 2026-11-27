@@ -1,4 +1,3 @@
-const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
@@ -6,38 +5,32 @@ module.exports = {
   config: {
     name: "intro",
     aliases: ["about", "botinfo"],
-    version: "1.2",
+    version: "2.0",
     author: "Sumon",
     shortDescription: "Sizuka Minamoto Introduction",
-    longDescription: "Shows bot introduction video",
+    longDescription: "Shows bot introduction with video",
     category: "info",
     guide: "{pn}intro"
   },
 
   onStart: async function ({ message, event }) {
     try {
-      const videoUrl =
-        "https://yourimageshare.com/ib/xikdIPHiCW.mp4";
+      const videoPath = path.join(__dirname, "sizuka.mp4");
 
-      const tmpDir = path.join(__dirname, "tmp");
-      await fs.ensureDir(tmpDir);
-
-      const videoPath = path.join(
-        tmpDir,
-        `${event.senderID}_sizuka.mp4`
-      );
-
-      const response = await axios.get(videoUrl, {
-        responseType: "arraybuffer",
-        timeout: 120000
-      });
-
-      await fs.writeFile(videoPath, Buffer.from(response.data));
+      if (!fs.existsSync(videoPath)) {
+        return message.reply(
+          "❌ sizuka.mp4 পাওয়া যায়নি!\n\nintro.js-এর একই folder-এ sizuka.mp4 রাখো।"
+        );
+      }
 
       const intro = `
 ╔════════════════════╗
     🌸 𝗦𝗜𝗭𝗨𝗞𝗔 𝗠𝗜𝗡𝗔𝗠𝗢𝗧𝗢 🌸
 ╚════════════════════╝
+
+╭━━━━━━━━━━━━━━━━━━╮
+       💠 𝗕𝗢𝗧 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡
+╰━━━━━━━━━━━━━━━━━━╯
 
 ➤ 👑 𝗡𝗔𝗠𝗘 : 𝗦𝗶𝘇𝘂𝗸𝗮 𝗠𝗶𝗻𝗮𝗺𝗼𝘁𝗼
 ➤ 🎂 𝗔𝗚𝗘 : 𝟭𝟴
@@ -46,26 +39,30 @@ module.exports = {
 ➤ 🌷 𝗚𝗘𝗡𝗗𝗘𝗥 : 𝗙𝗘𝗠𝗔𝗟𝗘
 ➤ ⚡ 𝗦𝗧𝗔𝗧𝗨𝗦 : 𝗔𝗟𝗪𝗔𝗬𝗦 𝗥𝗘𝗔𝗗𝗬
 
-━━━━━━━━━━━━━━━━━━━━
-
-💗 𝗔𝗕𝗢𝗨𝗧 𝗠𝗘
+╭━━━━━━━━━━━━━━━━━━╮
+       💗 𝗔𝗕𝗢𝗨𝗧 𝗠𝗘
+╰━━━━━━━━━━━━━━━━━━╯
 
 𝗛𝗘𝗟𝗟𝗢 𝗘𝗩𝗘𝗥𝗬𝗢𝗡𝗘! 👋
 
 𝗜 𝗔𝗠 𝗦𝗜𝗭𝗨𝗞𝗔 𝗠𝗜𝗡𝗔𝗠𝗢𝗧𝗢.
 𝗬𝗢𝗨𝗥 𝗙𝗥𝗜𝗘𝗡𝗗𝗟𝗬 𝗠𝗘𝗦𝗦𝗘𝗡𝗚𝗘𝗥 𝗕𝗢𝗧.
-𝗛𝗘𝗥𝗘 𝗧𝗢 𝗠𝗔𝗞𝗘 𝗬𝗢𝗨𝗥
-𝗚𝗥𝗢𝗨𝗣 𝗠𝗢𝗥𝗘 𝗙𝗨𝗡! 🌸
+𝗜 𝗔𝗠 𝗛𝗘𝗥𝗘 𝗧𝗢 𝗠𝗔𝗞𝗘
+𝗬𝗢𝗨𝗥 𝗚𝗥𝗢𝗨𝗣 𝗠𝗢𝗥𝗘
+𝗙𝗨𝗡 𝗔𝗡𝗗 𝗘𝗡𝗝𝗢𝗬𝗔𝗕𝗟𝗘! 🌸
 
 ━━━━━━━━━━━━━━━━━━━━
 
-👑 𝗕𝗢𝗧 𝗠𝗔𝗞𝗘 𝗕𝗬
-𝗔𝗛𝗠𝗘𝗗 𝗦𝗨𝗠𝗢𝗡
+       👑 𝗕𝗢𝗧 𝗠𝗔𝗞𝗘 𝗕𝗬
+          𝗔𝗛𝗠𝗘𝗗 𝗦𝗨𝗠𝗢𝗡
 
-📱 𝟬𝟭𝟲𝟭𝟱𝟭𝟵𝟳𝟬𝟬𝟯
+📱 𝗖𝗢𝗡𝗧𝗔𝗖𝗧 𝗪𝗛𝗔𝗧𝗦𝗔𝗣𝗣
+       𝟬𝟭𝟲𝟭𝟱𝟭𝟵𝟳𝟬𝟬𝟯
 
 ━━━━━━━━━━━━━━━━━━━━
-💕 𝗧𝗛𝗔𝗡𝗞𝗦 𝗙𝗢𝗥 𝗨𝗦𝗜𝗡𝗚 𝗠𝗘 💕
+
+     💕 𝗧𝗛𝗔𝗡𝗞𝗦 𝗙𝗢𝗥 𝗨𝗦𝗜𝗡𝗚 𝗠𝗘 💕
+          🌸 𝗛𝗔𝗩𝗘 𝗔 𝗡𝗜𝗖𝗘 𝗗𝗔𝗬 🌸
 `;
 
       await message.reply({
@@ -73,13 +70,9 @@ module.exports = {
         attachment: fs.createReadStream(videoPath)
       });
 
-      setTimeout(() => {
-        fs.remove(videoPath).catch(() => {});
-      }, 15000);
-
     } catch (error) {
-      console.error("INTRO VIDEO ERROR:", error);
-      await message.reply("❌ ভিডিও পাঠানো যায়নি!");
+      console.error("INTRO ERROR:", error);
+      return message.reply("❌ Intro video পাঠাতে সমস্যা হয়েছে!");
     }
   }
 };
